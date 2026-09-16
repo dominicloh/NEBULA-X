@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bogie Temperature Early-Warning Dashboard</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">NEBULA X</p>
+          <h1>NEBULA X Bogie Early Warning</h1>
+        </div>
+        <div class="status-pill" id="data-status">Data status: Placeholder</div>
+      </header>
+
+      <main class="dashboard">
+        <section class="hero">
+          <div>
+            <p class="section-label">Prototype</p>
+            <h2>Bogie Temperature Early-Warning Dashboard</h2>
+          </div>
+        </section>
+
+        <section class="kpis" aria-label="Key performance indicators">
+          <article class="card kpi-card">
+            <span class="kpi-label">Trains requiring attention</span>
+            <strong class="kpi-value" id="trains-requiring-attention">0</strong>
+          </article>
+          <article class="card kpi-card">
+            <span class="kpi-label">Critical anomalies</span>
+            <strong class="kpi-value" id="critical-anomalies">0</strong>
+          </article>
+          <article class="card kpi-card">
+            <span class="kpi-label">Developing warnings</span>
+            <strong class="kpi-value" id="developing-warnings">0</strong>
+          </article>
+          <article class="card kpi-card">
+            <span class="kpi-label">Highest-priority component</span>
+            <strong class="kpi-value" id="highest-priority-component">N/A</strong>
+          </article>
+        </section>
+
+        <section class="content-grid">
+          <article class="card panel">
+            <div class="panel-header">
+              <h3>Prioritised alerts</h3>
+            </div>
+            <div id="alert-list" class="alert-list" aria-live="polite">
+              <p class="empty-state">No alerts available yet.</p>
+            </div>
+          </article>
+
+          <article class="card panel">
+            <div class="panel-header">
+              <h3>Temperature trend</h3>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="temperature-chart" aria-label="Temperature trend chart"></canvas>
+            </div>
+            <p id="chart-empty-state" class="empty-state chart-empty-state">No time-series data available for the selected alert.</p>
+          </article>
+        </section>
+
+        <section class="card explanation-panel" aria-live="polite">
+          <h3>Evidence and explanation</h3>
+          <div id="explanation-content">
+            <p class="empty-state">Select an alert to view the supporting evidence.</p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        Decision-support prototype for engineering investigation. No final safety judgement should be made without engineering review.
+      </footer>
+    </div>
+  </body>
+</html>

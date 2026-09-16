@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "generated_at": null,
+    "model": "Not yet trained",
+    "data_status": "Placeholder"
+  },
+  "summary": {
+    "trains_requiring_attention": 0,
+    "critical_anomalies": 0,
+    "developing_warnings": 0,
+    "highest_priority_component": null
+  },
+  "alerts": [],
+  "timeseries": []
+}

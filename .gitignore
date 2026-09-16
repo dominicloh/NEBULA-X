@@ -1,0 +1,28 @@
+# Raw datasets
+data/input/*
+!data/input/README.md
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Secrets
+.env
+*.env
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Editor-specific files
+.vscode/
+.idea/
