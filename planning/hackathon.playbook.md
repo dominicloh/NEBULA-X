@@ -18,14 +18,14 @@
 
 ## Role assignments
 
-| Responsibility | Main owner | Backup | Status |
+| In charge of | Responsibility | Main owner | Backup
 | --- | --- | --- | --- |
-| Door data, segmentation and model | Door subsystem owner | [Placeholder] | Not finalised |
-| Rail data, features and model | Rail subsystem owner | [Placeholder] | Not finalised |
-| Shared app and visualisation | App owner | [Placeholder] | In progress |
-| Integration, validation, write-up and submission | Integration / team lead | [Placeholder] | In progress |
-| README and documentation | All | [Placeholder] | In progress |
-| Video pitch | All | [Placeholder] | Pending |
+| Door data, segmentation and model | Door subsystem owner | Muhamed Aydin | Dominic Loh
+| Rail data, features and model | Rail subsystem owner | Dominic Loh | Muhamed Aydin
+| Shared app and visualisation | App owner | Ryan Koh Zhixiang | Dominic Loh
+| Integration, validation, write-up and submission | Integration / team lead | Chloe How Wanyu | Ryan Koh Zhixiang
+| README and documentation | All | In progress |
+| Video pitch | All |
 
 ## Decision log
 
