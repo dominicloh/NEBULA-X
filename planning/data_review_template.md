@@ -1,124 +1,82 @@
 # DATA REVIEW TEMPLATE
 
-This worksheet should be completed in the first hour or two after the official data is released. The goal is to confirm what the organiser expects before any final model or submission work is considered reliable.
+This worksheet should be completed after the Door and Rail Corrugation specifications are reviewed. The goal is to confirm what the organiser expects before final model or submission work is treated as reliable.
 
 ## Specification review
 
-- [ ] Read `Problem_Statement_3_Specifications.md`
-- [ ] Identify required prediction filenames
-- [ ] Identify required prediction columns
-- [ ] Identify column order
-- [ ] Identify timestamp format
-- [ ] Identify accepted prediction values
-- [ ] Identify whether every input row needs a prediction
-- [ ] Identify whether files must remain separate
-- [ ] Identify evaluation criteria
+- [ ] Read the Door Info Kit and the Rail Corrugation Info Kit
+- [ ] Identify required prediction filenames for each subsystem
+- [ ] Identify required prediction columns and order
+- [ ] Identify timestamp format and accepted prediction values
+- [ ] Identify whether files remain separate
+- [ ] Identify evaluation criteria for each subsystem
 - [ ] Record unanswered questions for organisers
 
-## Dataset inventory
+## Door continuous-stream inspection
 
-| File | Purpose | Rows | Columns | Size | Notes |
-| --- | --- | --- | --- | --- | --- |
-| [FILE NAME] | [PURPOSE] | [ROW COUNT] | [COLUMN COUNT] | [SIZE] | [NOTES] |
-
-## Data dictionary
-
-| Column | Meaning | Data type | Unit | Missing values | Used by model? | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| [COLUMN NAME] | [MEANING] | [TYPE] | [UNIT] | [COUNT/STATUS] | [YES/NO] | [NOTES] |
-
-## Identifier mapping
-
-Only record what is actually available in the data. Do not assume all fields exist.
-
-- Timestamp: [TO FILL AFTER DATA INSPECTION]
-- Train: [TO FILL AFTER DATA INSPECTION]
-- Bogie: [TO FILL AFTER DATA INSPECTION]
-- Axle/bearing/component: [TO FILL AFTER DATA INSPECTION]
-- Sensor: [TO FILL AFTER DATA INSPECTION]
-- Temperature: [TO FILL AFTER DATA INSPECTION]
-- Speed: [TO FILL AFTER DATA INSPECTION]
-- Operating state: [TO FILL AFTER DATA INSPECTION]
-- Ambient/environmental value: [TO FILL AFTER DATA INSPECTION]
-- Fault label: [TO FILL AFTER DATA INSPECTION]
-- Confirmed fault time: [TO FILL AFTER DATA INSPECTION]
-- Maintenance record: [TO FILL AFTER DATA INSPECTION]
-
-## Time-series structure
-
-- Dataset start and end: [TO FILL AFTER DATA INSPECTION]
-- Sampling frequency: [TO FILL AFTER DATA INSPECTION]
-- Regular sampling: [YES/NO/UNKNOWN]
-- Number of trains: [TO FILL AFTER DATA INSPECTION]
-- Number of bogies/components: [TO FILL AFTER DATA INSPECTION]
-- Number of sensors: [TO FILL AFTER DATA INSPECTION]
-- Missing time periods: [TO FILL AFTER DATA INSPECTION]
+### Stream and timing
+- Stream name: [TO CONFIRM FROM DOOR INFO KIT]
+- Timestamp format: [TO CONFIRM FROM DOOR INFO KIT]
+- Stream duration: [TO FILL AFTER DATA INSPECTION]
+- Sampling interval: [TO FILL AFTER DATA INSPECTION]
+- Missing periods: [TO FILL AFTER DATA INSPECTION]
 - Duplicate timestamps: [TO FILL AFTER DATA INSPECTION]
-- Time zone: [TO FILL AFTER DATA INSPECTION]
+
+### Signal fields
+- Signal columns: [TO CONFIRM FROM DOOR INFO KIT]
+- Motor current: [TO FILL AFTER DATA INSPECTION]
+- Voltage: [TO FILL AFTER DATA INSPECTION]
+- Back-EMF: [TO FILL AFTER DATA INSPECTION]
+- Door position: [TO FILL AFTER DATA INSPECTION]
+- Missing values: [TO FILL AFTER DATA INSPECTION]
+
+### Cycle and label review
+- Position states: [TO CONFIRM FROM DOOR INFO KIT]
+- Reference segment labels: [TO CONFIRM FROM DOOR INFO KIT]
+- Normal vs abnormal-resistance distribution: [TO FILL AFTER DATA INSPECTION]
+- Cycle durations: [TO FILL AFTER DATA INSPECTION]
+- Potential leakage between related cycles: [TO FILL AFTER DATA INSPECTION]
+
+## Rail file-level inspection
+
+### File inventory
+| File | Purpose | Rows | Columns | Notes |
+| --- | --- | --- | --- | --- |
+| [FILE NAME] | [PURPOSE] | [ROW COUNT] | [COLUMN COUNT] | [NOTES] |
+
+### File content review
+- File-level labels available: [YES/NO/UNKNOWN]
+- Signal columns: [TO CONFIRM FROM RAIL INFO KIT]
+- Sampling characteristics: [TO FILL AFTER DATA INSPECTION]
+- Missing values: [TO FILL AFTER DATA INSPECTION]
+- Class distribution: [TO FILL AFTER DATA INSPECTION]
+- Leakage-safe split plan: [TO FILL AFTER DATA INSPECTION]
 
 ## Data-quality checks
 
 - [ ] Missing values
-- [ ] Duplicate rows
+- [ ] Duplicate timestamps or duplicate rows
 - [ ] Invalid timestamps
-- [ ] Non-numeric sensor readings
-- [ ] Constant columns
-- [ ] Impossible values
-- [ ] Large gaps
-- [ ] Irregular sampling
-- [ ] Sudden isolated spikes
-- [ ] Unequal sensor coverage
+- [ ] Non-numeric signal readings
+- [ ] Large gaps or irregular sampling
+- [ ] Impossible position or motion states
 - [ ] Leakage from future information
 - [ ] Class imbalance
-
-## Initial plots
-
-- [ ] Temperature against time
-- [ ] Temperature distribution
-- [ ] Temperature by component
-- [ ] Comparison between similar components
-- [ ] Rolling mean and variability
-- [ ] Rate of change
-- [ ] Data around verified fault events, if available
-
-## Initial findings
-
-### Normal behaviour
-- [TO FILL AFTER DATA INSPECTION]
-
-### Suspected anomalous behaviour
-- [TO FILL AFTER DATA INSPECTION]
-
-### Operating-context effects
-- [TO FILL AFTER DATA INSPECTION]
-
-### Possible useful features
-- [TO FILL AFTER DATA INSPECTION]
-
-### Potential data leakage
-- [TO FILL AFTER DATA INSPECTION]
-
-### Open questions
-- [TO FILL AFTER DATA INSPECTION]
-
-### Initial modelling decision
-- [TO FILL AFTER DATA INSPECTION]
 
 ## Official output requirements
 
 | Item | Value |
 | --- | --- |
-| Output directory | `predictions/` |
-| File naming rule | [TO CONFIRM FROM SPECIFICATION] |
-| Required columns | [TO CONFIRM FROM SPECIFICATION] |
-| Column order | [TO CONFIRM FROM SPECIFICATION] |
-| Row count expectation | [TO CONFIRM FROM SPECIFICATION] |
-| Timestamp format | [TO CONFIRM FROM SPECIFICATION] |
-| Prediction format | [TO CONFIRM FROM SPECIFICATION] |
-| Missing-value policy | [TO CONFIRM FROM SPECIFICATION] |
-| Validation completed by | [OWNER TO BE ASSIGNED] |
+| Door output filename | `door_predictions.csv` |
+| Door required columns | `start_time,end_time,prediction` |
+| Door label set | `Normal`, `Abnormal resistance` |
+| Rail output filename | `rail_predictions.csv` |
+| Rail required columns | `file_id,prediction` |
+| Rail label set | `Normal`, `Side I`, `Side II` |
+| ZIP root contents | `door_predictions.csv`, `rail_predictions.csv` |
+| Timestamp format | [TO CONFIRM FROM DOOR INFO KIT] |
 | Final confirmation status | [PENDING / CONFIRMED] |
 
 ---
 
-Keep this template short and operational. It should be used as a working document during the first inspection session, then updated as the team confirms the final output contract.
+Keep this template short and operational. It should be updated as the team confirms the final output contract for both subsystems.

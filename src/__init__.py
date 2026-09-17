@@ -1,1 +1,1 @@
-"""NEBULA X bogie-temperature anomaly detection project package."""
+"""NEBULA X — Train Condition Monitoring package."""

@@ -1,7 +1,7 @@
-"""Command-line entry point for the bogie-temperature analysis pipeline.
+"""Command-line entry point for the dual-subsystem condition-monitoring pipeline.
 
-This script deliberately stops before training or exporting final official
-predictions unless the dataset schema and required config are known.
+This scaffold intentionally stops before training or exporting final official
+predictions unless the subsystem schema and required configuration are known.
 """
 
 from __future__ import annotations
@@ -9,12 +9,12 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from preprocess import inspect_dataframe, load_csv_files
+from src.preprocess import inspect_dataframe, load_csv_files
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Inspect, prepare and evaluate bogie-temperature telemetry."
+        description="Inspect, prepare and evaluate the Door and Rail Corrugation pipelines."
     )
     parser.add_argument(
         "--input",
@@ -43,7 +43,7 @@ def main():
     args = parse_args()
     input_path = Path(args.input)
 
-    print("NEBULA X bogie-temperature pipeline scaffold")
+    print("NEBULA X train condition monitoring pipeline scaffold")
     print("This script is inspection-first and will stop before training a model.")
 
     try:

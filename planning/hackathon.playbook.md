@@ -4,178 +4,133 @@
 
 - Event name: NEBULA X Hackathon — “The Living Railway: Future of Mobility”
 - Track: PS3 — Predictive Fault Detection
-- Event dates: 18–20 September 2026
-- Submission deadline: 19 September 2026 at 4:00 pm Singapore time
-- Submission counter opens: 2:30 pm on 19 September 2026
-- Submission location: EA Atrium, outside LT7A
-- Physical sign-in requirement: At least one team member must physically sign in for submission
+- Event dates: As advised by the organiser
+- Submission deadline: As advised by the organiser
+- Submission counter opening: As advised by the organiser
+- Submission location: As advised by the organiser
 
 ## Team
 
-- Chloe How Wanyu
 - Dominic Loh
-- Muhamed Aydin
 - Ryan Koh Zhixiang
+- Muhamed Aydin
+- Chloe How Wanyu
 
 ## Role assignments
 
 | Responsibility | Main owner | Backup | Status |
 | --- | --- | --- | --- |
-| Data inspection and cleaning | Muhamed Aydin | Dominic Loh
-| Features and ML | Muhamed Aydin | Dominic Loh
-| Dashboard | Ryan Koh Zhixiang | Dominic Loh | Scaffold ready |
-| Integration and exports | Chloe How Wanyu | Scaffold ready |
-| README and write-up | All | Template ready |
-| Video pitch | All | Template ready |
-| Submission checker | All | Checklist ready |
-| Physical submission | All | Not assigned |
+| Door data, segmentation and model | Door subsystem owner | [Placeholder] | Not finalised |
+| Rail data, features and model | Rail subsystem owner | [Placeholder] | Not finalised |
+| Shared app and visualisation | App owner | [Placeholder] | In progress |
+| Integration, validation, write-up and submission | Integration / team lead | [Placeholder] | In progress |
+| README and documentation | All | [Placeholder] | In progress |
+| Video pitch | All | [Placeholder] | Pending |
+
+## Decision log
+
+The team selected Rail Corrugation and Door as its two official PS3 subsystems after the official specifications were released.
 
 ## Project scope
 
 ### Problem statement
-Bogie-temperature telemetry can contain early signs of abnormal heating, but the signal is usually mixed with normal operating variation. The challenge is to identify current and developing abnormal behaviour and prioritise components that merit engineering attention without claiming a confirmed root cause.
+The team supports rail engineers who need to review subsystem sensor data quickly and understand whether a recording requires attention. The challenge is to interpret time-series signals from two different task types while keeping the evidence accessible and the outputs consistent.
 
 ### Primary user
 Rail condition-monitoring or reliability engineer.
 
 ### Main user need
-“Identify which train component requires attention, understand whether its condition is worsening, and see enough evidence to decide whether it should be investigated.”
+“Help rail engineers process subsystem sensor data quickly, identify which recordings require attention, understand the evidence behind each result and download consistent outputs for further investigation.”
 
 ### Proposed solution
-Our system analyses bogie-temperature telemetry to identify current and developing abnormal heating patterns. It groups abnormal readings into meaningful events, ranks affected train components by severity, and presents the supporting evidence through an interactive dashboard for rail condition-monitoring engineers.
+Our system provides one accessible condition-monitoring app for two rail subsystems. It analyses door motor-cycle signals to detect and classify normal or abnormal-resistance operating cycles, and analyses axle-box vibration and shock files to classify rail condition as Normal, Side I or Side II corrugation.
 
 ### Value proposition
-“Turn large amounts of bogie-temperature telemetry into prioritised, explainable maintenance alerts.”
+“Turn complex rail sensor time series into clear, explainable and downloadable condition-monitoring results.”
 
 ## Minimum viable product
 
-- [ ] Read and inspect the official data files
-- [ ] Clean and validate required fields
-- [ ] Engineer suitable temperature features
-- [ ] Produce anomaly predictions
-- [ ] Identify current and developing abnormal behaviour where supported by data
-- [ ] Group consecutive predictions into events
-- [ ] Rank events for review
-- [ ] Produce the required `*_predictions.csv` files
-- [ ] Produce `dashboard_data.json`
-- [ ] Display prioritised alerts and supporting evidence
-- [ ] Host the dashboard publicly
+- [ ] Read the official Door and Rail Corrugation specifications
+- [ ] Confirm the Door stream schema and required fields
+- [ ] Confirm the Rail file schema and labels
+- [ ] Keep the Door and Rail pipelines separate
+- [ ] Produce a shared app with a subsystem selector
+- [ ] Implement safe fail states when the model is not ready
+- [ ] Validate each official prediction CSV schema
+- [ ] Package the outputs into `predictions.zip`
+- [ ] Produce the required `door_predictions.csv` and `rail_predictions.csv`
+- [ ] Provide evidence views for each subsystem
 - [ ] Complete README, write-up and video
 
 ## Out of scope
 
-- Door anomaly detection
-- Track-condition monitoring
-- Exact root-cause diagnosis
-- Automated repair recommendations
-- Official safety certification
-- Mobile application
-- Claims unsupported by the supplied data
+- Fabricating model results or timestamps
+- Claiming an exact mechanical root cause from signal data alone
+- Unsupported ACV or SHM labels unless clearly marked as not attempted
+- Unverified final model claims before the relevant Info Kit is read
+- Raw dataset leakage in the package or app
 
 ## Proposed technical flow
 
 ```text
-Official bogie CSVs
-→ inspection and validation
-→ cleaning
-→ feature engineering
-→ baseline and anomaly model
-→ row-level predictions
-→ event grouping and prioritisation
-→ official prediction CSVs
-→ dashboard JSON
-→ hosted dashboard
+Door Info Kit / Rail Info Kit
+→ schema confirmation
+→ cleaning and validation
+→ subsystem-specific feature engineering
+→ subsystem-specific model training or safe placeholder state
+→ official prediction export
+→ app presentation and evidence review
+→ combined package validation and ZIP submission bundle
 ```
 
-## Planned technical approach
+## Dashboard and app minimum content
 
-This section is provisional and will be updated after the official dataset and specification are reviewed.
-
-- Per-component baselines if component identifiers are available
-- Current temperature
-- Rolling mean
-- Rolling standard deviation
-- Temperature difference
-- Rate of temperature change
-- Deviation from baseline
-- Paired-component comparison if suitable sensors exist
-- Persistence of abnormal behaviour
-- Isolation Forest as the initial model
-- Simple statistical baseline for comparison
-- Another model only if time and data allow
-
-The final feature set and model choice depend on the actual dataset and organiser specification.
-
-## Dashboard minimum content
-
-- Four useful KPI cards
-- Prioritised alert list
-- Selected-alert temperature trend
-- Normal or historical baseline
-- Alert start marker
-- Explanation panel
-- Fleet or component status overview
-- Filters for available train, component, severity and time fields
-
-The dashboard should use progressive disclosure and avoid unnecessary charts or decorative elements.
+- Shared app title and explanation
+- Subsystem selector for Door or Rail Corrugation
+- Upload area and analysis trigger
+- Clear validation errors and safe non-fake message states
+- Prediction results and evidence for each subsystem
+- Download button for the correct output file
+- Methodology and disclaimer
 
 ## Definition of done
 
-- [ ] Official CSV format confirmed
-- [ ] Data inspection completed
-- [ ] Baseline model completed
-- [ ] Main model completed
-- [ ] Official predictions exported
-- [ ] Prediction files validated
-- [ ] Dashboard JSON exported
-- [ ] Dashboard tested locally
-- [ ] Dashboard tested through GitHub Pages
-- [ ] README completed
-- [ ] Write-up completed
-- [ ] Pitch recorded
-- [ ] Submission links tested
-- [ ] Backup created
-- [ ] Physical submission completed
+- [ ] Door Info Kit reviewed
+- [ ] Rail Corrugation Info Kit reviewed
+- [ ] Door stream schema confirmed
+- [ ] Rail file schema confirmed
+- [ ] Door segmentation works or fails safely with a clear message
+- [ ] Door classifier works or fails safely with a clear message
+- [ ] Rail classifier works or fails safely with a clear message
+- [ ] IoU-weighted F1 planned for Door evaluation
+- [ ] Macro F1 planned for Rail evaluation
+- [ ] `door_predictions.csv` validates correctly
+- [ ] `rail_predictions.csv` validates correctly
+- [ ] `predictions.zip` contains both CSVs at its root
+- [ ] Shared app works without code interaction
+- [ ] README, write-up and video updated
+- [ ] Submission links checked
 
 ## Timeline
 
-### Friday
+### Phase 1
 
-- Read specification
-- Inspect data
-- Confirm scope and roles
-- Build the first end-to-end version
-- Complete first integration before the team rests
+- Read the Info Kits and confirm schemas
+- Inspect the data and note missing or uncertain fields
+- Finalise the subsystem-specific module boundaries
 
-### Saturday
+### Phase 2
 
-- Finalise features and model
-- Generate predictions
-- Integrate dashboard
-- Complete documentation
-- Record pitch
-- Freeze development by 2:15 pm
-- Submit after the counter opens at 2:30 pm and before 4:00 pm
+- Implement subsystem data validation and feature interfaces
+- Build the shared app workflow
+- Review the safe fail states and packaging checks
 
-### Sunday, if selected
+### Phase 3
 
-- Prepare live demo
-- Review likely technical questions
-- Ensure every member understands the full solution
-
-Do not invent final presentation duration.
-
-## Decision log
-
-| Decision | Status | Notes |
-| --- | --- | --- |
-| Bogie temperature selected as the main focus | Confirmed | Primary objective remains anomaly detection and prioritisation |
-| Dashboard will be a web application | Confirmed | Source is in `docs/` and is intended for GitHub Pages |
-| Python will perform processing and ML | Confirmed | The repository uses a Python-based workflow |
-| JSON will connect Python outputs to the dashboard | Confirmed | Dashboard data is stored under `docs/data/dashboard_data.json` |
-| GitHub Pages will host the dashboard | Confirmed | Public hosted dashboard is expected to use the repository Pages configuration |
-| Exact root-cause recommendations remain out of scope | Confirmed | We do not claim exact mechanical fault diagnosis |
-| [Additional decision] | [Status] | [Notes] |
+- Train or validate the final model for each subsystem
+- Export the official predictions
+- Package and test the ZIP submission bundle
+- Finalise the documentation and pitch
 
 ## Team check-in
 
@@ -185,8 +140,8 @@ Use the following five questions in every short stand-up.
 - What are you doing next?
 - Are you blocked?
 - Do you need anything from another teammate?
-- Does the end-to-end pipeline still work?
+- Does the end-to-end pipeline still work for both subsystems?
 
 ---
 
-This playbook should be updated throughout the event as the team confirms the official specification, the data structure, and the final delivery plan.
+This playbook should be updated as the team confirms the final official specification, data structure and delivery plan.

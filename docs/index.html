@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bogie Temperature Early-Warning Dashboard</title>
+    <title>NEBULA X — Train Condition Monitoring</title>
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
     <script src="app.js" defer></script>
@@ -13,7 +13,7 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">NEBULA X</p>
-          <h1>NEBULA X Bogie Early Warning</h1>
+          <h1>Train Condition Monitoring</h1>
         </div>
         <div class="status-pill" id="data-status">Data status: Placeholder</div>
       </header>
@@ -21,61 +21,61 @@
       <main class="dashboard">
         <section class="hero">
           <div>
-            <p class="section-label">Prototype</p>
-            <h2>Bogie Temperature Early-Warning Dashboard</h2>
+            <p class="section-label">Shared condition-monitoring app</p>
+            <h2>Door and Rail Corrugation workflows</h2>
           </div>
         </section>
 
         <section class="kpis" aria-label="Key performance indicators">
           <article class="card kpi-card">
-            <span class="kpi-label">Trains requiring attention</span>
-            <strong class="kpi-value" id="trains-requiring-attention">0</strong>
+            <span class="kpi-label">Door cycles</span>
+            <strong class="kpi-value" id="door-cycles">0</strong>
           </article>
           <article class="card kpi-card">
-            <span class="kpi-label">Critical anomalies</span>
-            <strong class="kpi-value" id="critical-anomalies">0</strong>
+            <span class="kpi-label">Rail files</span>
+            <strong class="kpi-value" id="rail-files">0</strong>
           </article>
           <article class="card kpi-card">
-            <span class="kpi-label">Developing warnings</span>
-            <strong class="kpi-value" id="developing-warnings">0</strong>
+            <span class="kpi-label">Status</span>
+            <strong class="kpi-value" id="app-status">Pending</strong>
           </article>
           <article class="card kpi-card">
-            <span class="kpi-label">Highest-priority component</span>
-            <strong class="kpi-value" id="highest-priority-component">N/A</strong>
+            <span class="kpi-label">Output</span>
+            <strong class="kpi-value" id="output-type">Not generated</strong>
           </article>
         </section>
 
         <section class="content-grid">
           <article class="card panel">
             <div class="panel-header">
-              <h3>Prioritised alerts</h3>
+              <h3>Subsystem summary</h3>
             </div>
             <div id="alert-list" class="alert-list" aria-live="polite">
-              <p class="empty-state">No alerts available yet.</p>
+              <p class="empty-state">Door and Rail Corrugation workflows are available through the shared Streamlit app.</p>
             </div>
           </article>
 
           <article class="card panel">
             <div class="panel-header">
-              <h3>Temperature trend</h3>
+              <h3>Evidence preview</h3>
             </div>
             <div class="chart-wrap">
-              <canvas id="temperature-chart" aria-label="Temperature trend chart"></canvas>
+              <canvas id="temperature-chart" aria-label="Condition-monitoring signal chart"></canvas>
             </div>
-            <p id="chart-empty-state" class="empty-state chart-empty-state">No time-series data available for the selected alert.</p>
+            <p id="chart-empty-state" class="empty-state chart-empty-state">No uploaded signal data available yet.</p>
           </article>
         </section>
 
         <section class="card explanation-panel" aria-live="polite">
-          <h3>Evidence and explanation</h3>
+          <h3>Project explanation</h3>
           <div id="explanation-content">
-            <p class="empty-state">Select an alert to view the supporting evidence.</p>
+            <p class="empty-state">This landing page is informational only. It does not run the model itself. The real Door and Rail Corrugation workflows are provided by the shared app and output files.</p>
           </div>
         </section>
       </main>
 
       <footer class="footer">
-        Decision-support prototype for engineering investigation. No final safety judgement should be made without engineering review.
+        One shared condition-monitoring app for Door and Rail Corrugation. This page is for context and links, not for final model execution.
       </footer>
     </div>
   </body>

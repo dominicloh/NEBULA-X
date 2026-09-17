@@ -1,32 +1,29 @@
 """Export trained model output and dashboard-ready summary data.
 
-The official prediction CSV format must follow `Problem_Statement_3_Specifications.md`.
-No assumptions are made about the final organiser schema in this scaffold.
+The official prediction CSV format must match the required Door or Rail Corrugation
+schema exactly. No assumptions are made about unconfirmed final dataset details.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterable
 
 import numpy as np
 import pandas as pd
 
+from src.common.validation import validate_door_predictions, validate_rail_predictions
+
 
 def export_official_predictions(predictions, output_path, config):
-    """Export the official prediction CSV.
-
-    This function refuses to export anything unless the required schema configuration
-    is supplied. The final format must match the organiser specification exactly.
-    """
+    """Export the official prediction CSV for a configured subsystem schema."""
     if not isinstance(config, dict) or not config:
         raise ValueError(
             "Prediction export configuration is missing. Provide the official CSV "
             "schema before exporting predictions."
         )
 
-    required_keys = ["required_columns", "output_columns"]
+    required_keys = ["required_columns", "output_columns", "subsystem"]
     missing = [key for key in required_keys if key not in config]
     if missing:
         raise ValueError(
@@ -51,6 +48,15 @@ def export_official_predictions(predictions, output_path, config):
     final_columns = config.get("output_columns", list(export_frame.columns))
     export_frame = export_frame.loc[:, [column for column in final_columns if column in export_frame.columns]]
     export_frame.to_csv(output_path, index=False)
+
+    subsystem = config["subsystem"]
+    if subsystem == "door":
+        validate_door_predictions(export_frame)
+    elif subsystem == "rail":
+        validate_rail_predictions(export_frame)
+    else:
+        raise ValueError(f"Unsupported subsystem for export validation: {subsystem}")
+
     return output_path
 
 

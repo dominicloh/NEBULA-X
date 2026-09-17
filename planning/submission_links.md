@@ -5,17 +5,20 @@
 GitHub repository:
 https://github.com/dominicloh/NEBULA-X
 
-Hosted dashboard:
-https://dominicloh.github.io/NEBULA-X/
+Shared app:
+[TO BE CONFIRMED]
 
-Prediction folder:
-predictions/
+Prediction bundle:
+predictions.zip
 
-Dashboard source:
-docs/
+Door prediction location:
+predictions/door_predictions.csv
 
-Dashboard JSON:
-docs/data/dashboard_data.json
+Rail prediction location:
+predictions/rail_predictions.csv
+
+Shared video:
+[TO BE ADDED]
 
 Solution write-up:
 writeup/solution_writeup.md
@@ -24,7 +27,6 @@ writeup/solution_writeup.md
 
 - Video-pitch link: [LINK TO BE ADDED]
 - Final commit identifier: [TO FILL AFTER FINAL COMMIT]
-- Final prediction filenames: [TO FILL AFTER FINAL EXPORT]
 - Final write-up format: [TO FILL AFTER REVIEW]
 - Submission-team member: [OWNER TO BE ASSIGNED]
 - Backup submission-team member: [OWNER TO BE ASSIGNED]
@@ -35,26 +37,26 @@ writeup/solution_writeup.md
 ## Access checks
 
 - [ ] GitHub repository opens while logged out
-- [ ] Dashboard opens in incognito mode
-- [ ] Dashboard opens on another device
+- [ ] Shared app opens in incognito mode
 - [ ] Video opens without requesting access
-- [ ] Links are copied exactly
-- [ ] Prediction folder exists
+- [ ] Door prediction file is present
+- [ ] Rail prediction file is present
+- [ ] `predictions.zip` includes both CSV files at its root
 - [ ] Write-up exists
-- [ ] Final commit has been pushed
-- [ ] Pages deployment has completed successfully
+- [ ] Final commit has been pushed if required
+- [ ] Hosted link works while logged out
 
 ## Final handover block
 
 ```text
 Development frozen at:
 Final commit:
-Final model run completed at:
+Door model run completed at:
+Rail model run completed at:
 Prediction files validated by:
-Dashboard validated by:
+App validated by:
 Video validated by:
 Write-up validated by:
-Physical submission handled by:
 Submission completed at:
 Confirmation received:
 ```

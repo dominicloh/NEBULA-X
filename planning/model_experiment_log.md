@@ -1,159 +1,92 @@
 # MODEL EXPERIMENT LOG
 
-The purpose of this log is to record what was changed, why it was changed, and whether it improved the team’s ability to detect abnormal bogie-temperature behaviour. Do not claim final model quality without verified labels or a documented evaluation rule.
+The purpose of this log is to record what was changed, why it was changed, and whether it improved the team’s ability to solve the two PS3 task types. Do not claim final model quality without verified labels or a documented evaluation rule.
 
 ## Evaluation plan
 
-### If verified labels are available
+### Door task
 
-Possible evaluation measures include:
+Door is a temporal segment detection and binary classification problem. Final scoring uses IoU-weighted F1 across predicted and true temporal segments. This means the evaluation depends on both the predicted cycle timing and the predicted class label.
 
-- Precision
-- Recall
-- F1 score
-- Confusion matrix
-- False alerts
-- Verified fault events detected
-- Event-level recall
-- Early-warning lead time
+### Rail Corrugation task
 
-Accuracy alone may be misleading because anomalies are usually rare. The exact measure should follow the official specification and the supplied labels.
+Rail Corrugation is a file-level multi-class classification problem. Final scoring uses Macro F1 across file predictions.
 
-### If verified labels are unavailable
-
-Use the following practical checks instead:
-
-- Manual inspection of detected events
-- Deviation from historical or component baseline
-- Persistence
-- Rate of change
-- Agreement between signals
-- Comparison with a statistical baseline
-- Transparent limitation statement
-
-## Experiment summary table
+## Door experiment summary table
 
 | ID | Date/time | Model | Features | Key parameters | Validation method | Result | Decision |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [EXP ID] | [DATE/TIME] | [MODEL] | [FEATURES] | [PARAMETERS] | [METHOD] | [RESULT] | [KEEP/MODIFY/REJECT] |
+| [DOOR EXP ID] | [DATE/TIME] | [MODEL] | [FEATURES] | [PARAMETERS] | [METHOD] | [RESULT] | [KEEP/MODIFY/REJECT] |
 
-## Detailed experiment template
+## Rail experiment summary table
 
-### Experiment ID
-[EXP ID]
+| ID | Date/time | Model | Features | Key parameters | Validation method | Result | Decision |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| [RAIL EXP ID] | [DATE/TIME] | [MODEL] | [FEATURES] | [PARAMETERS] | [METHOD] | [RESULT] | [KEEP/MODIFY/REJECT] |
 
-### Objective
-[TO FILL AFTER MODEL EVALUATION]
+## Door planned experiments
 
-### Data used
-[TO FILL AFTER DATA INSPECTION]
+### Experiment 0 — Simple segmentation baseline
 
-### Preprocessing
-[TO FILL AFTER DATA INSPECTION]
+Potential approaches:
+- Candidate cycle detection from signal transitions
+- Fixed window or threshold-based segmentation
+- Reference to the Door Info Kit rules once confirmed
 
-### Features
-- [FEATURE 1]
-- [FEATURE 2]
-- [FEATURE 3]
+### Experiment 1 — Rule-based candidate segmentation
 
-### Model
-[MODEL NAME]
+Use the official Door rules after reading the Info Kit.
 
-### Parameters
-- [PARAMETER NAME]: [VALUE OR UNKNOWN]
-
-### Training method
-[TO FILL AFTER MODEL EVALUATION]
-
-### Validation method
-[TO FILL AFTER MODEL EVALUATION]
-
-### Results
-- [RESULT SUMMARY]
-
-### Example events
-- [EVENT DESCRIPTION]
-
-### False positives
-- [TO FILL AFTER MODEL EVALUATION]
-
-### Problems
-- [TO FILL AFTER MODEL EVALUATION]
-
-### Interpretation
-[TO FILL AFTER MODEL EVALUATION]
-
-### Keep, modify or reject
-[KEEP / MODIFY / REJECT]
-
-### Next action
-[TO FILL AFTER MODEL EVALUATION]
-
-## Planned experiments
-
-### Experiment 0 — Statistical baseline
-
-Use a simple statistical baseline to compare against the anomaly-detection model. Possible signals include:
-
-- Component rolling baseline
-- Deviation from rolling mean
-- Rate of change
-- Persistence of abnormal readings
-
-Parameters and results: [TO FILL AFTER MODEL EVALUATION]
-
-### Experiment 1 — Isolation Forest with temperature only
-
-This is a simple reference experiment, not necessarily the final model. It helps the team understand whether the raw temperature signal alone is enough for a useful early warning.
-
-Parameters and results: [TO FILL AFTER MODEL EVALUATION]
-
-### Experiment 2 — Isolation Forest with rolling behaviour
+### Experiment 2 — Segment-feature binary classifier
 
 Possible features include:
+- Cycle duration
+- Mean current
+- Peak current
+- Current variability
+- Current integral or energy
+- Voltage summary
+- Back-EMF summary
+- Position progression
+- Time spent in movement phases
+- Local peaks
+- Relationship between current and position
 
-- Temperature
-- Rolling mean
-- Rolling standard deviation
-- Temperature change
-- Rate of change
-- Deviation from baseline
+### Experiment 3 — Class-weighted classifier
 
-This should be tested before deeper modelling work because the data likely contains short-term thermal patterns that matter for early warning.
+Use this when the class distribution is imbalanced and the model needs explicit handling.
 
-Parameters and results: [TO FILL AFTER MODEL EVALUATION]
+### Experiment 4 — Segmentation plus classification evaluation
 
-### Experiment 3 — Contextual or component-comparison model
+Evaluate segment timing and class labels together using IoU-weighted F1.
 
-Only if identifiers and contextual fields are available.
+## Rail planned experiments
 
-Possible directions:
+### Experiment 0 — File-level baseline
 
-- Compare a component against its own recent history
-- Compare similar components within the same train or operating context
-- Combine component baseline and persistence behaviour
+A simple file-level feature baseline for Normal vs Side I/II classification.
 
-Parameters and results: [TO FILL AFTER MODEL EVALUATION]
+### Experiment 1 — Vibration and shock feature model
 
-### Optional model comparison
+Use the agreed feature set from the Rail Info Kit.
 
-Only if time allows:
+### Experiment 2 — Class-weighted or balanced classifier
 
-- Local Outlier Factor
-- One-Class SVM
+Use when class imbalance is present.
 
-These experiments are optional. They should not be treated as required for the hackathon MVP unless the data and time support them.
+### Experiment 3 — Macro F1 evaluation
+
+Report the official competition metric for the Rail task.
 
 ## Final-model decision
 
-| Criterion | Statistical baseline | Isolation Forest | Optional comparison |
+| Subsystem | Candidate direction | Selected? | Notes |
 | --- | --- | --- | --- |
-| Detection performance | [UNKNOWN] | [UNKNOWN] | [UNKNOWN] |
-| False alerts | [UNKNOWN] | [UNKNOWN] | [UNKNOWN] |
-| Explainability | [UNKNOWN] | [UNKNOWN] | [UNKNOWN] |
-| Runtime | [UNKNOWN] | [UNKNOWN] | [UNKNOWN] |
-| Robustness | [UNKNOWN] | [UNKNOWN] | [UNKNOWN] |
-| Selected? | [YES/NO] | [YES/NO] | [YES/NO] |
+| Door | Simple segmentation baseline | [YES/NO] | Not preselected until Info Kit review |
+| Door | Rule-based candidate segmentation | [YES/NO] | [TO FILL] |
+| Door | Segment-feature binary classifier | [YES/NO] | [TO FILL] |
+| Rail | File-level feature baseline | [YES/NO] | [TO FILL] |
+| Rail | Multi-class classifier | [YES/NO] | [TO FILL] |
 
 ## Reproducibility
 
@@ -168,4 +101,4 @@ These experiments are optional. They should not be treated as required for the h
 
 ---
 
-Keep this log simple, factual, and easy to update during the short hackathon timeline. The main goal is understanding what changed and why, not writing a long narrative.
+Keep this log simple, factual, and easy to update during the project timeline. The main goal is understanding what changed, why it changed, and which evaluation rule governs the final result.

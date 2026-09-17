@@ -1,22 +1,29 @@
 # Team Workflow
 
 ## Project scope
-Focus only on bogie-temperature anomaly detection for the minimum viable product. Do not broaden the scope into unrelated maintenance or signalling tasks during the hackathon.
+The team selected Rail Corrugation and Door as its two official PS3 subsystems after the official specifications were released.
 
 ## Suggested ownership
-- Data lead: data inspection, cleaning and documentation
-- ML lead: feature engineering, anomaly detection and prediction output
-- Dashboard lead: interface, charts and interactions
-- Integration/pitch lead: JSON integration, README, write-up, video and submission checks
 
-Do not assign individual names to the roles yet. The team should agree on ownership together before the work becomes parallelised.
+| Responsibility | Suggested ownership |
+| --- | --- |
+| Door data, segmentation and model | Door subsystem owner |
+| Rail data, features and model | Rail subsystem owner |
+| Shared Streamlit app and visualisation | App owner |
+| Integration, validation, write-up, video and submission | Integration / team lead |
+
+Keep actual names as placeholders until the team confirms assignments.
+
+The two subsystem owners are responsible for both their data understanding and initial model. The app owner must not duplicate model logic. The integration lead ensures both pipelines use consistent interfaces.
 
 ## Working rules
-- One main owner for each file or area.
+- One main owner for each subsystem or shared component.
+- Keep the Door and Rail pipelines separate at the module level.
+- Share only the final validated interfaces with the app owner.
 - Pull before starting work.
 - Commit small working changes.
-- Do not silently change JSON field names.
-- Inform both ML and dashboard owners about schema changes.
+- Do not silently change CSV schema names or timestamp conventions.
+- Inform the relevant subsystem owner and integration lead before schema changes.
 - Keep the latest working version available.
 - Report blockers early.
 - Hold a five-minute check-in approximately every two hours.
@@ -27,16 +34,15 @@ Do not assign individual names to the roles yet. The team should agree on owners
 - What are you doing next?
 - Are you blocked?
 - Do you need anything from another teammate?
-- Does the end-to-end pipeline still work?
+- Does the end-to-end pipeline still work for both subsystems?
 
 ## Milestones
-- Friday night: basic real-data pipeline and placeholder dashboard connected
-- Saturday morning: model and features frozen
-- Saturday late morning: final dashboard integration
-- Saturday 2:15 pm: stop development and perform submission audit
-- Submission deadline: 19 September, 4:00 pm
-- Submission counter opens at 2:30 pm
-- At least one member must physically sign in at the EA Atrium outside LT7A
+- Friday night: Door and Rail scaffolds are live and validated for safe failure states
+- Saturday morning: Info Kit checks complete and model interfaces confirmed
+- Saturday late morning: Door segmentation and Rail feature pipeline aligned with the app
+- Saturday afternoon: final validation and packaging for `predictions.zip`
+- Submission deadline: as advised by the organiser
+- At least one member must physically sign in at the event venue for submission if required
 
 ## Communication expectations
-Keep the handoff between data, ML, dashboard and submission work explicit. If a schema or output format changes, note it in writing and tell the relevant owners before continuing. This prevents dashboard or prediction outputs drifting away from the model-generated data.
+Keep the handoff between Door data, Rail data, app development and submission work explicit. If a schema or output format changes, record it in writing and inform the relevant owners before continuing. This prevents the shared app or prediction exports drifting away from the subsystem pipelines.
