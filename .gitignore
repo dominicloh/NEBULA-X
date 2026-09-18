@@ -6,9 +6,17 @@ data/input/**
 # defensively in case it's ever nested inside this repo by mistake)
 organiser-materials/
 
-# Trained model artifacts
+# Trained model artifacts (arbitrary/experimental ones stay out of git --
+# they can be large and are always reproducible by re-running training)
 *.joblib
 *.pkl
+
+# Exception: the one approved, final Rail Corrugation model artifact. It is
+# small (~10 KB -- a fitted StandardScaler + LogisticRegression on 74
+# features, not raw data) and is the actual artifact predict.py/the
+# Streamlit app load, so it is tracked deliberately rather than ignored.
+# This does NOT commit it automatically -- `git add` is still required.
+!models/rail_corrugation_model.joblib
 
 # Rail Corrugation exploratory plots (generated locally, not part of the submission)
 output/rail_corrugation/eda/

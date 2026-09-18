@@ -45,8 +45,10 @@ import argparse
 import json
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
+import joblib
 import matplotlib
 
 matplotlib.use("Agg")
@@ -54,6 +56,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from sklearn.base import clone
 from sklearn.metrics import (
     balanced_accuracy_score,
     classification_report,
@@ -76,6 +79,7 @@ from src.rail_corrugation.model import RANDOM_STATE, build_candidate_models  # n
 CLASS_LABELS = list(VALID_RAIL_LABELS)
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output" / "rail_corrugation" / "baseline"
+DEFAULT_MODEL_PATH = PROJECT_ROOT / "models" / "rail_corrugation_model.joblib"
 
 
 def load_training_data(dataset_root: Path, verbose: bool = True):
@@ -219,6 +223,59 @@ def select_best_model(comparison_table: pd.DataFrame) -> tuple:
     return best_row["model"], warning
 
 
+def train_final_model(
+    X: pd.DataFrame,
+    y: np.ndarray,
+    model_name: str,
+    validation_summary: dict,
+    output_path: Path,
+) -> dict:
+    """Fit the selected model's exact pipeline ONCE on all 272 labelled Train
+    files (no CV split here -- this is the real, deployable artifact) and
+    persist everything needed to predict later without ever refitting.
+
+    Stage 2's cross-validation intentionally fit the scaler/model fresh inside
+    every fold so the validation score never saw held-out data. Stage 3 is
+    different: there is no more held-out validation happening once we commit
+    to a final model, so fitting the exact same pipeline architecture on ALL
+    labelled training rows (not a subset) is the correct thing to do -- more
+    data in the final fit, still zero test-file leakage since Test/ is never
+    read here.
+
+    `clone()` gives a fresh, UNFITTED copy of the exact pipeline architecture
+    and hyperparameters that were actually evaluated by cross-validation, so
+    the final model can't silently drift from what was validated.
+    """
+    candidate_models = build_candidate_models()
+    if model_name not in candidate_models:
+        raise ValueError(
+            f"Unknown model name for final training: {model_name!r}. "
+            f"Available: {sorted(candidate_models)}"
+        )
+    pipeline = clone(candidate_models[model_name])
+    pipeline.fit(X, y)
+
+    artifact = {
+        "pipeline": pipeline,
+        "feature_names": list(X.columns),
+        "class_labels": CLASS_LABELS,
+        "model_name": model_name,
+        "sampling_frequency_hz": SAMPLING_FREQUENCY_HZ,
+        "random_state": RANDOM_STATE,
+        "n_training_files": int(len(X)),
+        "trained_at_utc": datetime.now(timezone.utc).isoformat(),
+        # Cross-validation ESTIMATES from Stage 2/3 evaluation on the 272
+        # labelled Train files only. These describe expected performance on
+        # unseen data of the same kind -- they are NOT a measurement of
+        # accuracy on the actual hidden test set, whose true labels the team
+        # does not have access to.
+        "validation_summary": validation_summary,
+    }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(artifact, output_path)
+    return artifact
+
+
 def save_confusion_matrix_plot(confusion: np.ndarray, model_name: str, output_path: Path) -> None:
     """Save a confusion matrix heatmap for the strongest baseline.
 
@@ -266,6 +323,21 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=10,
         help="Number of repeats of the n-splits CV, to measure macro F1 variability (default: 10).",
+    )
+    parser.add_argument(
+        "--finalize",
+        action="store_true",
+        help=(
+            "After comparing candidates, also fit the strongest baseline's exact pipeline on ALL "
+            "272 labelled Train files (Test/ still never read) and save the fitted artifact to "
+            "--model-path. Off by default so a plain comparison run never silently overwrites the "
+            "deployed model."
+        ),
+    )
+    parser.add_argument(
+        "--model-path",
+        default=str(DEFAULT_MODEL_PATH),
+        help=f"Where to save the final model artifact when --finalize is set. Default: {DEFAULT_MODEL_PATH}",
     )
     return parser.parse_args()
 
@@ -370,6 +442,29 @@ def main() -> int:
         json.dump(summary, f, indent=2)
 
     print(f"\nSaved outputs under: {output_dir}")
+
+    if args.finalize:
+        model_path = Path(args.model_path).expanduser().resolve()
+        print(f"\n--finalize set: fitting {best_model_name} on all {n_files} labelled Train files...")
+        best_comparison_row = comparison_table[comparison_table["model"] == best_model_name].iloc[0]
+        validation_summary = {
+            "selected_model": best_model_name,
+            "selection_rule": "highest mean macro F1 among models that detect both Side I and Side II in out-of-fold predictions",
+            "cv_scheme": summary["cv_scheme"],
+            "mean_macro_f1_repeated_cv": best_comparison_row["mean_macro_f1"],
+            "std_macro_f1_repeated_cv": best_comparison_row["std_macro_f1"],
+            "oof_macro_f1_fixed_5fold": best_comparison_row["oof_macro_f1"],
+            "oof_balanced_accuracy_fixed_5fold": best_comparison_row["oof_balanced_accuracy"],
+            "note": (
+                "These are cross-validation ESTIMATES computed on the 272 labelled Train files only. "
+                "The hidden Test file labels are not available to the team, so this is not a measurement "
+                "of accuracy on the actual test set -- only a validation estimate of expected performance."
+            ),
+        }
+        train_final_model(X, y, best_model_name, validation_summary, model_path)
+        artifact_size_kb = model_path.stat().st_size / 1024
+        print(f"Saved final model artifact to: {model_path} ({artifact_size_kb:.1f} KB)")
+
     print(f"Total runtime: {total_runtime_seconds:.1f}s")
     print("\nNo test predictions were generated. Test/ files were never read.")
     return 0

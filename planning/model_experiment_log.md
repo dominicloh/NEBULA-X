@@ -22,8 +22,8 @@ Rail Corrugation is a file-level multi-class classification problem. Final scori
 
 | ID | Date/time | Model | Features | Key parameters | Validation method | Result | Decision |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| RAIL-000 | 2026-09-18 | DummyClassifier(strategy="most_frequent") | 74 file-level features (see below) | none (predicts "Normal" every time) | RepeatedStratifiedKFold(5x10) + fixed StratifiedKFold(5) OOF | Macro F1 0.308 ± 0.002; Side I/II recall = 0 | REJECT (floor only) |
-| RAIL-001 | 2026-09-18 | Class-weighted LogisticRegression + StandardScaler | 74 file-level features | `class_weight="balanced"`, `max_iter=5000`, `random_state=42` | RepeatedStratifiedKFold(5x10) + fixed StratifiedKFold(5) OOF | Macro F1 0.779 ± 0.091 (repeated); 0.807 OOF; detects both Side I (recall 0.71) and Side II (recall 0.83) | **KEEP — current best baseline** |
+| RAIL-000 | 2026-09-18 | DummyClassifier(strategy="most_frequent") | 74 file-level features (see below) | none (predicts "Normal" every time) | Repeated 5-fold stratified CV, 50 evaluated folds total (5 folds x 10 repeats) + a separate fixed 5-fold stratified CV for out-of-fold (OOF) predictions | Macro F1 0.308 ± 0.002; Side I/II recall = 0 | REJECT (floor only) |
+| RAIL-001 | 2026-09-18 | Class-weighted LogisticRegression + StandardScaler | 74 file-level features | `class_weight="balanced"`, `max_iter=5000`, `random_state=42` | Repeated 5-fold stratified CV, 50 evaluated folds total (5 folds x 10 repeats) + a separate fixed 5-fold stratified CV for out-of-fold (OOF) predictions | Macro F1 0.779 ± 0.091 (repeated); 0.807 OOF; detects both Side I (recall 0.71) and Side II (recall 0.83) | **KEEP — current best baseline** |
 | RAIL-002 | 2026-09-18 | Class-weighted RandomForestClassifier | 74 file-level features | 300 trees, `class_weight="balanced"`, `random_state=42` | same as above | Macro F1 0.605 ± 0.082 (repeated); 0.588 OOF; Side I recall = **0** (misses the fault entirely) | REJECT for now (fails minority-class check) |
 | RAIL-003 | 2026-09-18 | Class-weighted ExtraTreesClassifier | 74 file-level features | 300 trees, `class_weight="balanced"`, `random_state=42` | same as above | Macro F1 0.595 ± 0.071 (repeated); 0.588 OOF; Side I recall = **0** (misses the fault entirely) | REJECT for now (fails minority-class check) |
 
@@ -110,12 +110,16 @@ investigation before relying on tree models here.
 
 ### Experiment 3 — Macro F1 evaluation (DONE — see Results below)
 
-Evaluated with `RepeatedStratifiedKFold(n_splits=5, n_repeats=10, random_state=42)`
-(50 total fold fits, to measure macro F1's spread given only 14 Side I files) for the
-headline mean/std, and a single fixed `StratifiedKFold(n_splits=5, shuffle=True,
-random_state=42)` via `cross_val_predict` for one reproducible set of out-of-fold (OOF)
-predictions per model — used for the per-class precision/recall/F1, balanced accuracy,
-and confusion matrix. Full outputs saved under `output/rail_corrugation/baseline/`.
+Validation method: **repeated five-fold stratified cross-validation, 50 evaluated folds
+in total** (`RepeatedStratifiedKFold(n_splits=5, n_repeats=10, random_state=42)` = 5
+folds x 10 repeats = 50 fold fits), used to measure macro F1's mean and spread given
+only 14 Side I files. Separately, a single fixed `StratifiedKFold(n_splits=5,
+shuffle=True, random_state=42)` run once via `cross_val_predict` gives one reproducible
+out-of-fold (OOF) prediction per file per model — this is what the per-class
+precision/recall/F1, balanced accuracy, and confusion matrix are computed from (the
+repeated CV above gives a distribution of scores, not one prediction per file, so it
+cannot directly produce a confusion matrix). Full outputs saved under
+`output/rail_corrugation/baseline/`.
 
 #### Results (2026-09-18 run, `python src/rail_corrugation/train.py`)
 
@@ -128,9 +132,17 @@ and confusion matrix. Full outputs saved under `output/rail_corrugation/baseline
 
 Class-imbalance handling: `class_weight="balanced"` only (no SMOTE/resampling this
 stage). Limitations: only 14 Side I examples in the entire training set means the OOF
-confusion matrix's Side I numbers (10 correct / 4 missed out of 14) come from a very
-small sample — a single reshuffled split could move Side I recall by one or two files.
-The repeated-CV std of ~0.09 on macro F1 for Logistic Regression reflects that
+confusion matrix's Side I numbers (10 correct / 4 missed out of the 14 true Side I
+files, i.e. recall 10/14 = 0.71) come from a very small sample — a single reshuffled
+split could move Side I recall by one or two files. Side I **precision** (0.56) means
+something different and is worth stating precisely rather than just as a decimal: the
+model predicted "Side I" for **18 files total in the out-of-fold run — 10 of those were
+correct and 8 were false positives** (7 true-Normal files and 1 true-Side-II file
+misclassified as Side I; see `output/rail_corrugation/baseline/confusion_matrix.png`),
+i.e. precision = 10/18 = 0.56. Both the recall and precision numbers come from the same
+14-vs-18 file counts, confirmed directly from the stored confusion matrix and
+`model_comparison.csv`, not recomputed from the rounded decimals. The repeated-CV std
+of ~0.09 on macro F1 for Logistic Regression reflects the same small-sample
 uncertainty and should be quoted alongside the mean, not the mean alone. Random Forest
 and Extra Trees achieving *higher* macro F1 than Logistic Regression on some individual
 folds but *lower* on average, while missing Side I recall entirely in the OOF run, is

@@ -21,7 +21,7 @@
       "std_macro_f1": 0.0015869277142342556,
       "oof_macro_f1": 0.308300395256917,
       "mean_balanced_accuracy": 0.33333333333333326,
-      "mean_fit_time_seconds": 0.000928654670715332,
+      "mean_fit_time_seconds": 0.0009374332427978516,
       "detects_both_minority_classes": false
     },
     "LogisticRegression": {
@@ -29,7 +29,7 @@
       "std_macro_f1": 0.09060821882409292,
       "oof_macro_f1": 0.8065134099616859,
       "mean_balanced_accuracy": 0.8217678075855689,
-      "mean_fit_time_seconds": 0.017118854522705076,
+      "mean_fit_time_seconds": 0.017352533340454102,
       "detects_both_minority_classes": true
     },
     "RandomForest": {
@@ -37,7 +37,7 @@
       "std_macro_f1": 0.08224834486336645,
       "oof_macro_f1": 0.5881472807702316,
       "mean_balanced_accuracy": 0.590632130743139,
-      "mean_fit_time_seconds": 0.5199524211883545,
+      "mean_fit_time_seconds": 0.5335778045654297,
       "detects_both_minority_classes": false
     },
     "ExtraTrees": {
@@ -45,11 +45,11 @@
       "std_macro_f1": 0.07096560893643311,
       "oof_macro_f1": 0.5881472807702316,
       "mean_balanced_accuracy": 0.5883233631411244,
-      "mean_fit_time_seconds": 0.4340707492828369,
+      "mean_fit_time_seconds": 0.4252573776245117,
       "detects_both_minority_classes": false
     }
   },
-  "total_runtime_seconds": 64.8,
+  "total_runtime_seconds": 87.7,
   "test_files_used": false,
   "final_test_predictions_generated": false
 }
