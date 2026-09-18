@@ -40,12 +40,23 @@ Rail Corrugation: upload file(s) → extract file features → classify each fil
 
 ## Current implementation status
 
-This repository is intentionally scaffolded to be safe and explicit:
+- **Rail Corrugation is functional end to end**: a frozen, validated baseline model, a reusable feature/prediction pipeline, an official `rail_predictions.csv`, and a dedicated Streamlit page (`app/rail_view.py`) with validation, an engineer review queue, explainability and signal evidence. See **Rail Corrugation status** below for the confirmed numbers.
+- **Door remains an intentional scaffold.** It stops with clear "model not ready" messages until the Door Info Kit's exact cycle rules, timestamp format and labels are confirmed and a pipeline is trained. No Door results are claimed anywhere in this repository.
+- The shared app (`app/streamlit_app.py`) provides one subsystem selector; Door and Rail Corrugation stay separate at the module level (`src/door/`, `src/rail_corrugation/`, `app/rail_view.py`) so one subsystem's work never blocks the other's.
+- Prediction exports are validated against the official schemas (`src/common/validation.py`, `src/rail_corrugation/validate_predictions.py`) rather than fabricated.
 
-- The app supports a shared subsystem selector.
-- Door and Rail Corrugation are kept separate in their own pipeline modules.
-- The app stops with clear “model not ready” messages until the required Info Kit details and trained models are available.
-- The prediction exports are validated against the official schemas without fabricating results.
+## Rail Corrugation status
+
+| Item | Value |
+| --- | --- |
+| Feature extractor | 74 deterministic file-level features (`src/rail_corrugation/features.py`) -- see `planning/rail_corrugation_data_audit.md` and `planning/model_experiment_log.md` |
+| Selected model | `StandardScaler` + class-weighted `LogisticRegression` (chosen over Random Forest / Extra Trees baselines -- see `planning/model_experiment_log.md`) |
+| Validation method | Repeated 5-fold stratified cross-validation, 50 evaluated folds total, on the 272 labelled training files only |
+| Validation estimate | Mean macro F1 0.779 ± 0.091 (repeated CV); out-of-fold macro F1 0.807 (fixed 5-fold) |
+| Frozen model artifact | `models/rail_corrugation_model.joblib` (~10 KB; trained once, never retrained by the app) |
+| Official prediction output | `predictions/rail_predictions.csv` (`file_id,prediction`, one row per official Test file, all validation checks passed) |
+
+**These are cross-validation estimates on the 272 labelled training files only.** The hidden Test-file labels are not available to the team, so no accuracy claim is made about the actual 68 Test-file predictions -- only that the output file matches the required schema exactly.
 
 ## Repository structure
 
@@ -57,7 +68,8 @@ nebula-x-bogie-early-warning/
 ├── requirements.txt
 ├── .gitignore
 ├── app/
-│   └── streamlit_app.py
+│   ├── streamlit_app.py       # shared navigation/branding; delegates to rail_view for Rail
+│   └── rail_view.py           # all Rail Corrugation UI, validation and explainability
 ├── data/
 │   └── input/
 │       └── README.md
@@ -67,15 +79,18 @@ nebula-x-bogie-early-warning/
 │   ├── styles.css
 │   └── data/
 │       └── dashboard_data.json
+├── models/
+│   └── rail_corrugation_model.joblib   # frozen, tracked (~10 KB) -- see .gitignore
 ├── planning/
 │   ├── data_review_template.md
 │   ├── hackathon.playbook.md
 │   ├── model_experiment_log.md
+│   ├── rail_corrugation_data_audit.md
 │   ├── submission_links.md
 │   └── video_pitch_template.md
 ├── predictions/
 │   ├── README.md
-│   └── [official prediction outputs]
+│   └── rail_predictions.csv    # official Rail output; door_predictions.csv pending
 ├── scripts/
 │   ├── package_predictions.py
 │   └── validate_predictions.py
@@ -86,66 +101,33 @@ nebula-x-bogie-early-warning/
 │   ├── common/
 │   │   ├── __init__.py
 │   │   └── validation.py
-│   ├── door/
+│   ├── door/                   # scaffold only -- see Current implementation status
 │   │   ├── __init__.py
 │   │   ├── preprocess.py
 │   │   ├── segment.py
 │   │   ├── features.py
 │   │   ├── model.py
 │   │   └── predict.py
-│   └── rail_corrugation/
+│   └── rail_corrugation/       # functional: inspection, features, training, prediction
 │       ├── __init__.py
+│       ├── inspect_data.py
+│       ├── plot_samples.py
 │       ├── preprocess.py
 │       ├── features.py
 │       ├── model.py
-│       └── predict.py
-├── writeup/
-│   └── solution_writeup.md
-└── .github/
+│       ├── train.py
+│       ├── predict.py
+│       └── validate_predictions.py
+├── tests/
+│   ├── test_rail_predict.py
+│   └── test_rail_app.py
+├── output/
+│   └── rail_corrugation/        # baseline metrics/plots, EDA plots (not raw data)
+└── writeup/
+    └── solution_writeup.md
 ```
 
-## Key notes
-
-- Door uses a single continuous test stream named `Test.csv`.
-- Door is temporal segment detection and binary classification.
-- Rail Corrugation is file-level multi-class classification.
-- Neither subsystem should claim a final model or result until the relevant Info Kit and data checks are complete.
-- The shared app provides both workflows from one place; the subsystem-specific model logic stays separate.
-
-## Quick links
-
-- Prediction outputs: [predictions/README.md](predictions/README.md)
-- Shared app: [app/streamlit_app.py](app/streamlit_app.py)
-- Solution write-up: [writeup/solution_writeup.md](writeup/solution_writeup.md)
-- Submission planning: [planning/hackathon.playbook.md](planning/hackathon.playbook.md)
-│   ├── app.js
-│   ├── index.html
-│   ├── styles.css
-│   └── data/
-│       └── dashboard_data.json
-├── notebooks/
-│   └── README.md
-├── planning/
-│   ├── data_review_template.md
-│   ├── hackathon.playbook.md
-│   ├── model_experiment_log.md
-│   ├── submission_links.md
-│   └── video_pitch_template.md
-├── predictions/
-│   └── README.md
-├── src/
-│   ├── __init__.py
-│   ├── export_results.py
-│   ├── features.py
-│   ├── model.py
-│   ├── preprocess.py
-│   └── run_pipeline.py
-├── writeup/
-│   └── solution_writeup.md
-└── requirements.txt
-```
-
-## 17. Installation
+## Installation
 
 Clone the repository:
 
@@ -170,40 +152,38 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-## 18. Input data
+`requirements.txt` pins `scikit-learn==1.8.0` and `joblib==1.5.3` exactly, matching the versions used to train and save `models/rail_corrugation_model.joblib` -- a mismatched scikit-learn version can fail to load a pickled model correctly.
 
-Official CSV files should be placed in `data/input/` only after the team confirms the organisers’ usage restrictions and file requirements.
+## Running the shared Streamlit app locally
 
-Important points:
-
-- Raw data is excluded from Git by default.
-- The team must first confirm filenames, column meanings, timestamps, units, identifiers and output requirements.
-- Do not imply that arbitrary CSV schemas work automatically.
-- The actual prediction format must be confirmed against the official specification.
-
-## 19. Running the pipeline
-
-The project currently provides an inspection-first pipeline scaffold. Review [src/run_pipeline.py](src/run_pipeline.py) before running it, because the script stops safely until the real schema is known.
+From the project root:
 
 ```bat
-python src\run_pipeline.py --input data\input --dashboard-output docs\data\dashboard_data.json --predictions-output predictions\sample_predictions.csv
+python -m streamlit run app/streamlit_app.py
 ```
 
-The intended stages are:
+This opens the shared app in your browser (default `http://localhost:8501`). Select **Rail Corrugation** to upload one or more CSV files (or a ZIP of CSVs) and see validation results, the engineer review queue, per-file explanations and signal evidence; select **Door** to see its current scaffold state.
 
-1. Load inputs
-2. Validate schema
-3. Clean data
-4. Build features
-5. Generate predictions
-6. Group events
-7. Calculate severity
-8. Export official predictions
-9. Export dashboard JSON
+**Hosted Streamlit app:** [LINK TO BE ADDED once deployed](#) -- not yet deployed; a teammate needs to publish this (e.g. Streamlit Community Cloud) and update this link.
 
-The workflow is intentionally conservative until the official specification is reviewed.
+## Input data
 
-## 20. Running the dashboard locally
+Official CSV files should be placed in `data/input/` only after the team confirms the organisers' usage restrictions and file requirements. Raw data is excluded from Git by default (`.gitignore`); do not commit organiser CSVs.
+
+For Rail Corrugation, the confirmed dataset facts (schema, sampling rate, side mapping, class distribution) are recorded in `planning/rail_corrugation_data_audit.md` -- read that before changing any Rail-specific assumption.
+
+## Running the Rail Corrugation pipeline directly (without the app)
+
+```bat
+python src\rail_corrugation\inspect_data.py
+python src\rail_corrugation\train.py --finalize
+python src\rail_corrugation\predict.py "<path to organiser Test folder>"
+python src\rail_corrugation\validate_predictions.py
+```
+
+See `planning/model_experiment_log.md` for what each step produces and why.
+
+## Running the dashboard locally
 
 ```bat
 python -m http.server 8000 --directory docs
@@ -215,34 +195,35 @@ Then open:
 http://localhost:8000/
 ```
 
-Public dashboard: https://dominicloh.github.io/NEBULA-X/
+Public static dashboard (separate from the Streamlit app above): https://dominicloh.github.io/NEBULA-X/
 
-## 21. Submission outputs
+## Submission outputs
 
 | Requirement | Location |
 | --- | --- |
 | GitHub repository | [https://github.com/dominicloh/NEBULA-X](https://github.com/dominicloh/NEBULA-X) |
-| Hosted prototype | [https://dominicloh.github.io/NEBULA-X/](https://dominicloh.github.io/NEBULA-X/) |
-| Prediction outputs | [predictions/](predictions/) |
+| Hosted Streamlit app | [LINK TO BE ADDED](#) -- placeholder until deployed |
+| Hosted static dashboard | [https://dominicloh.github.io/NEBULA-X/](https://dominicloh.github.io/NEBULA-X/) |
+| Rail prediction output | [predictions/rail_predictions.csv](predictions/rail_predictions.csv) |
+| Door prediction output | Not yet available -- Door pipeline is still a scaffold |
 | Solution write-up | [writeup/solution_writeup.md](writeup/solution_writeup.md) |
 | Video pitch | [LINK TO BE ADDED](#) |
 
-## 22. Team
+## Team
 
 - Dominic Loh — Ngee Ann Polytechnic
 - Ryan Koh Zhixiang
 - Muhamed Aydin
 - Chloe How Wanyu
 
-## 23. Limitations
+## Limitations
 
-- Anomalies do not independently confirm exact faults.
-- Performance depends on data quality and inspection of the official specification.
-- Operating conditions may affect temperature behaviour.
-- Model outputs require engineering interpretation.
-- Temperature does not capture every possible bogie fault.
-- Production use requires further validation with verified labels and operational testing.
+- A model prediction does not independently confirm a physical rail defect or any other fault; it supports engineering review and prioritisation.
+- The Rail Corrugation validation numbers above are cross-validation estimates on 272 labelled training files, not a measurement against the hidden Test-file labels (unavailable to the team).
+- The Rail training set is heavily imbalanced (234 Normal / 24 Side II / 14 Side I); the Side I minority class has the widest validation uncertainty (see `planning/model_experiment_log.md`).
+- Door segmentation and classification are not implemented yet -- no Door result of any kind should be assumed.
+- Production use of either subsystem requires further validation with verified labels and operational testing.
 
-## 24. Disclaimer
+## Disclaimer
 
-This is a hackathon decision-support prototype. It does not replace engineering judgement, inspection procedures or railway safety requirements.
+This is a hackathon decision-support prototype. It does not replace engineering judgement, inspection procedures or railway safety requirements. This prototype supports engineering review. A prediction does not independently confirm rail corrugation or replace railway inspection and safety procedures.

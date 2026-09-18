@@ -1,11 +1,17 @@
 """Shared Streamlit app for the two official PS3 subsystems.
 
-This app intentionally stays safe until the Door segmentation pipeline and Rail model
-are configured from their respective Info Kits. It presents the expected workflow and
-stops with clear model-not-ready messages rather than generating fake outputs.
+Door still intentionally stays safe until the Door segmentation pipeline is
+configured from its Info Kit (see `_door_upload_and_analysis` below) --
+untouched by the Rail Corrugation integration in this file. Rail Corrugation
+now has a frozen, validated model (see planning/model_experiment_log.md);
+its UI/processing logic lives entirely in `app/rail_view.py` to keep this
+shared file's diff minimal and avoid conflicts with Door work-in-progress.
 """
 
 from __future__ import annotations
+
+import sys
+from pathlib import Path
 
 import pandas as pd
 
@@ -17,6 +23,23 @@ except ImportError:  # pragma: no cover - optional dependency for non-UI executi
             raise RuntimeError("streamlit is required to run the app.")
 
     st = _MissingStreamlit()
+
+# Ensure "app.rail_view" and "src...." imports resolve regardless of the
+# working directory the app is launched from (e.g. `streamlit run
+# app/streamlit_app.py` from the project root, per the README).
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# Imported at module load, but guarded: a problem loading the Rail module
+# (e.g. a missing model artifact) must never take down the Door page.
+try:
+    from app.rail_view import render_rail_page
+
+    _RAIL_VIEW_IMPORT_ERROR = None
+except Exception as exc:  # pragma: no cover - defensive guard, see _rail_upload_and_analysis
+    render_rail_page = None
+    _RAIL_VIEW_IMPORT_ERROR = exc
 
 VALID_DOOR_LABELS = ("Normal", "Abnormal resistance")
 VALID_RAIL_LABELS = ("Normal", "Side I", "Side II")
@@ -75,26 +98,15 @@ def _door_upload_and_analysis():
 
 
 def _rail_upload_and_analysis():
-    st.subheader("Rail Corrugation subsystem")
-    uploaded_files = st.file_uploader(
-        "Upload Rail Corrugation files",
-        type=["csv"],
-        accept_multiple_files=True,
-        help="Upload one or many axle-box vibration and shock CSV files. Results are file-level classifications.",
-    )
-    if not uploaded_files:
-        st.info("Upload one or more Rail Corrugation CSV files to classify them as Normal, Side I or Side II.")
+    # All Rail UI/processing logic lives in app/rail_view.py (separate module
+    # per TEAM_WORKFLOW.md, reusing the frozen model + src/rail_corrugation
+    # pipeline from Stage 3). If that module ever fails to import (e.g. the
+    # model artifact is missing on a fresh checkout), Door stays unaffected.
+    if render_rail_page is None:
+        st.error(f"Rail Corrugation page failed to load: {_RAIL_VIEW_IMPORT_ERROR}")
+        st.caption("Door is unaffected by this. See app/rail_view.py and models/rail_corrugation_model.joblib.")
         return
-
-    st.write(f"Uploaded {len(uploaded_files)} file(s): {[file.name for file in uploaded_files]}")
-    table = pd.DataFrame({"file_id": [file.name for file in uploaded_files], "prediction": ["[TO CONFIRM FROM RAIL INFO KIT]" for _ in uploaded_files]})
-    st.dataframe(table)
-    st.warning(
-        "Rail classification is not yet active until the file schema, feature set and trained model are confirmed."
-    )
-
-    if st.button("Analyse Rail files"):
-        st.error("Model not ready: Rail Corrugation classification is pending the Info Kit and trained model.")
+    render_rail_page()
 
 
 def _render_methodology_and_disclaimer():

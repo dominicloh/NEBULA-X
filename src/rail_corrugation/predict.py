@@ -106,7 +106,19 @@ def _load_named_frame(source) -> tuple:
     """Read one input source into (file_id, DataFrame). Loads exactly one
     file at a time -- callers should discard the frame before the next call
     so large batches never hold every file in memory together.
+
+    Also accepts a `(file_id, DataFrame)` tuple directly -- used by the
+    Streamlit app, which must validate an uploaded file's raw frame (row
+    count, dtypes, missing/infinite values -- checks this module doesn't
+    need to make on every prediction) *before* handing it to the model, and
+    would otherwise have to parse the same CSV bytes twice.
     """
+    if isinstance(source, tuple) and len(source) == 2 and isinstance(source[1], pd.DataFrame):
+        file_id, frame = source
+        if not file_id or not str(file_id).strip():
+            raise ValueError("A pre-loaded Rail Corrugation DataFrame was given without a usable filename.")
+        return Path(str(file_id)).name, frame
+
     if isinstance(source, (str, Path)):
         path = Path(source)
         if not path.is_file():
@@ -141,9 +153,10 @@ def predict_rail_files(inputs, model_path: Path = DEFAULT_MODEL_PATH, artifact: 
     `inputs` may be:
       - a path (str/Path) to one CSV file
       - a path (str/Path) to a directory of CSV files
-      - a list/tuple of paths and/or file-like objects (e.g. Streamlit
+      - a list/tuple of paths, file-like objects (e.g. Streamlit
         UploadedFile instances, which have a '.name' and are directly
-        readable by pandas)
+        readable by pandas), and/or `(file_id, DataFrame)` tuples for
+        already-parsed/validated frames
       - a single file-like object
 
     Returns a DataFrame with one row per input file:
