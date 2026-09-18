@@ -1,0 +1,19 @@
+{
+  "train": {
+    "official_cycles": 110,
+    "detected_cycles": 110,
+    "matched_cycles": 110,
+    "missing_official_cycles": 0,
+    "extra_detected_cycles": 0,
+    "mean_iou": 1.0,
+    "median_iou": 1.0,
+    "minimum_iou": 1.0,
+    "iou_at_least_0_50": 110,
+    "iou_at_least_0_75": 110,
+    "iou_at_least_0_90": 110,
+    "mean_absolute_start_boundary_error_ms": 0.0,
+    "mean_absolute_end_boundary_error_ms": 0.0,
+    "chronological_pair_overlap": true
+  },
+  "train_validated_for_test_run": true
+}

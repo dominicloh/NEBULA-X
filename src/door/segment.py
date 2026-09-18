@@ -1,96 +1,83 @@
-"""Door cycle segmentation -- THIS IS THE MAIN FILE THE DOOR TEAMMATE MUST FINISH.
+"""Door cycle segmentation using a frozen Train-derived timestamp-gap rule.
 
-`detect_cycles()` deliberately raises NotImplementedError below. Do not
-invent a segmentation rule here without justifying it against
-`Train_Segments_Answer.csv` first -- see planning/door_handoff.md Sections
-4 and 6 for the confirmed facts and a safe first approach.
-
-Suggested beginner workflow (see planning/door_handoff.md for the full
-detail behind each step):
-
-    1. Plot the door-position signal (and a few others) for a known cycle
-       from Train_Segments_Answer.csv, so you know what a real cycle looks
-       like before writing any detection code.
-    2. Identify candidate opening/closing transitions -- planning/door_handoff.md
-       Section 2 found that large gaps in the "Datetime" column (>100ms,
-       vs. the usual ~20ms) line up almost exactly with the boundaries
-       BETWEEN cycles in Train.csv. That is a measured hint, not a proven
-       rule -- verify it yourself with inspect_data.py before relying on it.
-    3. From each candidate window, derive a proposed start_time/end_time
-       (you will likely need to refine the exact edges using the signal
-       columns themselves -- a big gap tells you roughly WHERE a boundary
-       is, not necessarily the exact millisecond).
-    4. Compare your candidates against Train_Segments_Answer.csv: how many
-       of the 110 true segments did you find? How close are your start/end
-       times? Did you invent any extra segments that aren't real?
-    5. Tune your approach using ONLY Train.csv + Train_Segments_Answer.csv.
-       Never look at Test.csv while tuning.
-    6. Measure temporal overlap (IoU) between your candidates and the true
-       segments -- this is exactly what the official IoU-weighted F1 metric
-       rewards (see the Door Info Kit, Section 4, for the exact formula).
+This module never loads ground-truth answers. It splits only at consecutive
+timestamp gaps above the configured threshold and returns the original
+timestamp text at each detected block's first and last sample.
 """
 
 from __future__ import annotations
 
+import math
+
 import pandas as pd
 
-from src.door.preprocess import PARSED_DATETIME_COLUMN
+from src.door import config as door_config
+from src.door.preprocess import PARSED_DATETIME_COLUMN, parse_door_datetime_series
 
-# NOTE: this module does not import src.door.config at the top level,
-# because detect_cycles()'s own `config` parameter (below) would shadow it --
-# a classic beginner trap. If your implementation of detect_cycles needs
-# values from src/door/config.py (e.g. CANDIDATE_GAP_THRESHOLD_MS), import
-# it inside the function with a different name, e.g.:
-#     from src.door import config as door_config
-#     threshold = door_config.CANDIDATE_GAP_THRESHOLD_MS
-
-# The exact columns detect_cycles() must return, once implemented. This
-# matches the official Train_Segments_Answer.csv schema (minus "status",
-# which classification -- not segmentation -- assigns) so the same table
-# shape flows straight into extract_cycle_features().
+# Classification assigns status later. These columns flow directly into
+# extract_cycle_features() and retain the organiser's native time format.
 SEGMENT_COLUMNS = ("segment_id", "start_time", "end_time")
 
 
 def detect_cycles(dataframe: pd.DataFrame, config: dict | None = None) -> pd.DataFrame:
-    """Detect candidate door-open/close cycles in a continuous Door stream.
+    """Return one chronologically ordered, non-overlapping row per cycle.
 
-    Parameters
-    ----------
-    dataframe:
-        A Door stream loaded by `src.door.preprocess.load_door_csv` (must
-        already have the parsed "_datetime_parsed" column).
-    config:
-        Segmentation parameters (e.g. the gap threshold to use). Left as
-        `None` deliberately -- `src/door/config.py::SEGMENTATION_CONFIG` is
-        also `None` until this function is implemented and validated, so a
-        caller can't accidentally "configure" a segmentation rule that
-        doesn't exist yet.
-
-    Returns
-    -------
-    A DataFrame with (at least) columns `segment_id`, `start_time`,
-    `end_time` -- one row per detected candidate cycle -- once implemented.
-
-    Currently always raises NotImplementedError: inventing a segmentation
-    rule without validating it against Train_Segments_Answer.csv would risk
-    silently producing wrong cycle boundaries that look like real output.
-    See the module docstring above and planning/door_handoff.md for how to
-    implement this for real.
+    ``config`` is an internal testing/experimentation override for
+    ``gap_threshold_ms``. Normal prediction calls omit it and use the frozen
+    value in door/config.py.
+    The input order is never changed or repaired here.
     """
     if not isinstance(dataframe, pd.DataFrame):
         raise TypeError("detect_cycles expects a pandas DataFrame (see src.door.preprocess.load_door_csv).")
+    if dataframe.empty:
+        raise ValueError("detect_cycles requires at least two Door readings.")
+    if door_config.DATETIME_COLUMN not in dataframe.columns:
+        raise ValueError(f"detect_cycles requires the original {door_config.DATETIME_COLUMN!r} column.")
     if PARSED_DATETIME_COLUMN not in dataframe.columns:
         raise ValueError(
             f"detect_cycles expects a DataFrame with a {PARSED_DATETIME_COLUMN!r} column -- "
             "load it with src.door.preprocess.load_door_csv first."
         )
+    parameters = door_config.SEGMENTATION_CONFIG if config is None else config
+    if not isinstance(parameters, dict) or set(parameters) != {"gap_threshold_ms"}:
+        raise ValueError("Segmentation config must contain only gap_threshold_ms.")
+    threshold_ms = parameters["gap_threshold_ms"]
+    if (
+        isinstance(threshold_ms, bool)
+        or not isinstance(threshold_ms, (int, float))
+        or not math.isfinite(threshold_ms)
+        or threshold_ms <= 0
+    ):
+        raise ValueError("gap_threshold_ms must be a finite positive number.")
 
-    raise NotImplementedError(
-        "Door segmentation (detect_cycles) is not implemented yet. This is the main piece the "
-        "Door teammate needs to build -- see planning/door_handoff.md Sections 4 and 6 for the "
-        "confirmed data facts (e.g. large Datetime gaps lining up with cycle boundaries in "
-        "Train.csv) and a suggested safe first approach. Validate any approach against "
-        "Train_Segments_Answer.csv before ever running it on Test.csv."
+    timestamps = dataframe[PARSED_DATETIME_COLUMN].reset_index(drop=True)
+    if not pd.api.types.is_datetime64_any_dtype(timestamps):
+        raise ValueError(f"{PARSED_DATETIME_COLUMN!r} must have a datetime dtype.")
+    if timestamps.isna().any():
+        raise ValueError(f"{PARSED_DATETIME_COLUMN!r} contains missing or invalid timestamps.")
+    raw = dataframe[door_config.DATETIME_COLUMN].reset_index(drop=True)
+    try:
+        reparsed = parse_door_datetime_series(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Malformed original Door Datetime: {exc}") from exc
+    if not reparsed.equals(timestamps):
+        raise ValueError("Parsed timestamps do not match the original Datetime text.")
+    differences = timestamps.diff()
+    if differences.iloc[1:].le(pd.Timedelta(0)).any():
+        raise ValueError("Door timestamps must be strictly increasing in source row order; duplicate or unsorted input found.")
+
+    threshold = pd.Timedelta(milliseconds=threshold_ms)
+    cuts = [int(i) for i in differences.index[differences.gt(threshold)]]
+    starts = [0, *cuts]
+    ends = [i - 1 for i in cuts] + [len(dataframe) - 1]
+    if any(start >= end for start, end in zip(starts, ends)):
+        raise ValueError("A timestamp gap leaves a block with fewer than two readings; cycle boundaries are ambiguous.")
+    return pd.DataFrame(
+        [
+            (f"detected_seg_{number:03d}", raw.iloc[start], raw.iloc[end])
+            for number, (start, end) in enumerate(zip(starts, ends), start=1)
+        ],
+        columns=list(SEGMENT_COLUMNS),
     )
 
 

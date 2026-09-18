@@ -71,19 +71,15 @@ VALID_DOOR_LABELS = ("Normal", "Abnormal resistance")
 # rather than trusting this blindly if the data ever changes.
 OBSERVED_DENSE_SAMPLE_INTERVAL_MS = 20
 
-# A "large" gap between consecutive Datetime values that likely marks a
-# boundary between cycles rather than noise within one. This threshold
-# (100ms = 5x the observed dense interval) is a starting point for
-# `segment.py`'s segmentation approach, not an organiser-confirmed value --
-# tune and justify it against Train_Segments_Answer.csv yourself.
+# Train-only measurement: all 17,926 ordinary consecutive intervals were
+# exactly 20 ms; the smallest of the other 109 intervals was 10,215 ms.
+# 100 ms (5x the 20 ms dense interval) lies well inside that separation.
+# This is an observed Train-derived rule, not an organiser-specified value.
 CANDIDATE_GAP_THRESHOLD_MS = 100
 
-# --- Explicitly unset -- do not invent these ---------------------------------
-# The Info Kit deliberately leaves the segmentation rule as an open design
-# decision ("think about what actually changes at a cycle boundary"). Do not
-# assign this a value until segment.py's approach is implemented and
-# validated against Train_Segments_Answer.csv.
-SEGMENTATION_CONFIG = None
+# Frozen for both Train evaluation and Test inference. Do not recalculate
+# from Test statistics or hidden Test labels.
+SEGMENTATION_CONFIG = {"gap_threshold_ms": CANDIDATE_GAP_THRESHOLD_MS}
 
 # --- Where a trained artifact should live once training is implemented -----
 # Mirrors models/rail_corrugation_model.joblib's convention.

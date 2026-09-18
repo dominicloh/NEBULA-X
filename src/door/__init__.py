@@ -1,9 +1,8 @@
 """Door subsystem package.
 
-Segmentation (`detect_cycles`) is not implemented yet -- see
-planning/door_handoff.md. Everything else (loading, feature extraction,
-model comparison, validation, read-only inspection) is functional now and
-does not depend on segmentation being finished.
+Segmentation (`detect_cycles`) uses a frozen Train-validated timestamp-gap
+rule. Classification and end-to-end readiness remain separate work; see
+planning/door_handoff.md.
 """
 
 from .config import OFFICIAL_OUTPUT_COLUMNS, VALID_DOOR_LABELS

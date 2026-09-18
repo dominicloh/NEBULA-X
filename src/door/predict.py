@@ -6,14 +6,12 @@ This module never fabricates a prediction. `predict_door_file()` checks,
 in order:
   1. Does a trained classifier artifact exist? If not: clear "Door model is
      not ready" error. Never falls back to a random/default label.
-  2. Can the stream be segmented? This calls `segment.py::detect_cycles`,
-     which currently always raises NotImplementedError -- that error is
-     allowed to surface as-is (it already explains what to implement).
+  2. Segment the stream with the frozen Train-validated `detect_cycles` rule.
   3. Only once both exist: extract features for each detected cycle,
      predict a label, and build both the official output and a detailed
      evidence table for the app.
 
-Usage (once detect_cycles() and a trained model both exist):
+Usage (once a separately validated classifier artifact exists):
     python src/door/predict.py <path to Test.csv> [--model-path PATH] [--output PATH]
 """
 
@@ -50,8 +48,7 @@ def predict_door_file(source, model_path=None) -> tuple[pd.DataFrame, pd.DataFra
     random/default label:
       - FileNotFoundError("Door model is not ready...") if no trained
         artifact exists at `model_path`.
-      - NotImplementedError (from detect_cycles) if segmentation isn't
-        implemented yet.
+      - ValueError if the stream cannot be safely segmented.
 
     GUARANTEE: this function has no parameter for externally-supplied
     segment boundaries and never reads Train_Segments_Answer.csv (or any
@@ -75,9 +72,7 @@ def predict_door_file(source, model_path=None) -> tuple[pd.DataFrame, pd.DataFra
     artifact = load_door_pipeline(model_path)
 
     stream = load_door_csv(source)
-    # This is expected to raise NotImplementedError until detect_cycles()
-    # is implemented -- that error already explains what to do next, so we
-    # deliberately do not catch or reword it here.
+    # Boundaries come only from the sensor stream, never the answer file.
     segments = detect_cycles(stream)
 
     pipeline = artifact["pipeline"] if isinstance(artifact, dict) else artifact

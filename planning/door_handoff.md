@@ -222,8 +222,8 @@ independently.
    **Confirmed result (2026-09-19 run of `python src/door/train.py`):
    Classification-only cross-validation using official ground-truth cycle
    boundaries achieved 1.000 macro F1. This is a proxy result and not the
-   official end-to-end IoU-weighted F1. Automatic cycle segmentation remains
-   unfinished.** Don't read this as "the Door model works" — it only means
+   official end-to-end IoU-weighted F1. At the time of that run, automatic
+   cycle segmentation was unfinished.** Don't read this as "the Door model works" — it only means
    the two classes are easy to tell apart once you're handed perfect
    boundaries, which your own `detect_cycles()` won't produce on day one.
 4. Only after both stages work reasonably on `Train.csv` should you run the
@@ -245,7 +245,7 @@ and justify your own train/validation split").
 | `src/door/config.py` | Confirmed paths/columns/labels only | Done — read it, don't need to edit unless something genuinely changes |
 | `src/door/preprocess.py` | Loading + validating raw CSVs, Datetime parsing | Done (`load_door_csv`, `parse_door_datetime`) |
 | `src/door/inspect_data.py` | Read-only data inspection script | Done and runnable now |
-| `src/door/segment.py` | **`detect_cycles()` -- YOUR MAIN JOB** | Raises `NotImplementedError` with guidance -- implement this |
+| `src/door/segment.py` | `detect_cycles()` | Implemented and validated on Train; see Stage 2 result below |
 | `src/door/features.py` | `extract_cycle_features()` -- turns segments into a feature table | Done (works with any valid segments, including the official ones) |
 | `src/door/model.py` | Candidate baseline models | Done (Dummy / Logistic Regression / Random Forest) |
 | `src/door/train.py` | Training/evaluation workflow | Done for classification-only evaluation using official segments; extend once `detect_cycles` works |
@@ -280,7 +280,7 @@ python src/door/train.py
 # Save a trained classifier artifact (only once you're happy with it)
 python src/door/train.py --finalize
 
-# Full pipeline on the real Test.csv (only works once detect_cycles() is implemented)
+# Full pipeline on the real Test.csv (Stage 3: only after classifier integration is validated)
 python src/door/predict.py "<path to organiser Test.csv>"
 
 # Validate your official output before trusting it
@@ -289,8 +289,8 @@ python src/door/validate_predictions.py --predictions predictions/door_predictio
 
 ## 10. Definition of done
 
-- [ ] `detect_cycles()` finds a reasonable set of candidate cycles on `Train.csv` (compare against `Train_Segments_Answer.csv` -- how many did you find vs. the true 110? how close are your boundaries?)
-- [x] `python src/door/train.py` reports macro F1 and per-class precision/recall/F1 for at least 2 real candidate models, compared against a `DummyClassifier` floor. Classification-only cross-validation using official ground-truth cycle boundaries achieved 1.000 macro F1. This is a proxy result and not the official end-to-end IoU-weighted F1. Automatic cycle segmentation remains unfinished.
+- [x] `detect_cycles()` matches all 110 official Train cycles with mean IoU 1.000 and zero boundary error; see Stage 2 result below.
+- [x] `python src/door/train.py` reports macro F1 and per-class precision/recall/F1 for at least 2 real candidate models, compared against a `DummyClassifier` floor. Classification-only cross-validation using official ground-truth cycle boundaries achieved 1.000 macro F1. This is a proxy result and not the official end-to-end IoU-weighted F1; Stage 2 segmentation results are documented below.
 - [ ] `python src/door/predict.py <Test.csv>` runs end-to-end and produces `predictions/door_predictions.csv`
 - [ ] `python src/door/validate_predictions.py` passes with no errors
 - [ ] The Streamlit Door page shows real validation/status, never an invented prediction
@@ -312,4 +312,51 @@ python src/door/validate_predictions.py --predictions predictions/door_predictio
 - **No official units are given for `Door leaf position`** (the Data Headers doc marks it "self-explanatory" with no unit). Treat its raw values as relative/arbitrary until told otherwise.
 - **No official `predict.py` `--input`/`--output` CLI contract was found.** Like the Rail Corrugation Info Kit, the Door Info Kit says this is defined in "the top-level README's Deliverables section," but that section (checked in full) only describes the required **app** (upload -> prediction -> download), not a specific CLI. This is the same open question already flagged in `planning/rail_corrugation_data_audit.md` -- it appears to be a repo-wide documentation inconsistency, not something specific to Door.
 - **No official guidance on exactly which signal(s) define a cycle boundary** -- this is a deliberate open design decision for you to make and justify (see Section 4).
+
+## Stage 2 segmentation result (2026-09-19)
+
+`src/door/segment.py::detect_cycles()` now splits the ordered sensor stream
+where the difference between consecutive parsed timestamps is **strictly
+greater than 100 ms**. Each cycle begins at the first reading after a gap and
+ends at the last reading before the next gap. It returns those readings'
+original `Datetime` strings as `start_time` and `end_time`; it does not
+classify, sort, resample, interpolate, or consult the answer file.
+
+The 100 ms threshold is frozen in `src/door/config.py`. It was selected from
+**Train only**: the median and largest ordinary row interval are both 20 ms,
+while the smallest of the 109 large gaps is 10,215 ms. Thus 100 ms is 5 times
+the dense interval and far below the first observed inter-block gap. This
+separation is an observation in this dataset, not an organiser-specified rule.
+
+`src/door/evaluate_segmentation.py` matches detected Train intervals against
+`Train_Segments_Answer.csv` one-to-one by maximum total temporal IoU. The
+answer file is used only here for evaluation, never by `detect_cycles()` or
+Test prediction. On the 18,036-row Train stream:
+
+| Measure | Observed result |
+|---|---:|
+| Official / detected / matched cycles | 110 / 110 / 110 |
+| Missing official / extra detected | 0 / 0 |
+| Mean / median / minimum temporal IoU | 1.000 / 1.000 / 1.000 |
+| IoU at least 0.50 / 0.75 / 0.90 | 110 / 110 / 110 |
+| Mean absolute start / end boundary error | 0 ms / 0 ms |
+| Chronological pairwise overlap | All 110 pairs |
+
+Only after that Train result, the unchanged frozen method was applied to the
+6,253-row **unlabelled Test** stream. It detected 38 ordered, non-overlapping
+cycles, all inside the Test time range. No Test labels were available or used.
+These are observed counts, not forced targets or organiser-stated facts.
+
+**Limitations:** The rule depends on a large gap between densely recorded
+cycles. A future continuous recording without such gaps, or with a dropped
+packet inside a real cycle exceeding 100 ms, needs a new Train-validated
+segmentation rule. The perfect Train timing result does not establish Test
+classification quality or official end-to-end IoU-weighted F1. The Door app
+must remain **NOT READY** until the classification and prediction pipeline is
+verified end-to-end.
+
+**Exact next step (Stage 3):** integrate the frozen detected cycles with
+`extract_cycle_features()` and a validated classifier, evaluate end-to-end on
+a held-out portion of Train, then generate and validate the official
+`start_time,end_time,prediction` output from Test without answer-file access.
 - **No official train/validation split is prescribed** -- per the PS3 spec, you must design and justify your own (e.g. holding out some of `Train.csv`'s labelled segments).
