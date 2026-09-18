@@ -14,4 +14,8 @@ jupyter
 # Shared Streamlit app (app/streamlit_app.py, app/rail_view.py): file
 # upload, download buttons, st.cache_resource and colored markdown badges
 # all need a reasonably recent Streamlit.
-streamlit>=1.30
+streamlit==1.64.0
+# Interactive dashboard charts (KPI donuts, hoverable timelines/bar charts,
+# tabbed signal evidence) in app/ui.py -- static matplotlib images can't
+# provide hover tooltips, which the dashboard layout needs.
+plotly==7.1.0
