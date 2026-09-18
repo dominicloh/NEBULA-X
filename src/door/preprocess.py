@@ -122,8 +122,8 @@ def load_door_csv(source) -> pd.DataFrame:
     - Validates that all 17 confirmed columns are present.
     - Parses the "Datetime" column into `PARSED_DATETIME_COLUMN`
       (the original "Datetime" string column is kept untouched).
-    - Sorts chronologically by parsed Datetime (Train.csv/Test.csv are
-      already sorted, but an uploaded file might not be).
+    - Preserves source row order and rejects timestamps that are not
+      monotonically increasing.
     - Raises a clear error on missing values, duplicate rows, or duplicate
       timestamps -- it does NOT silently drop or fix them.
 
@@ -161,7 +161,11 @@ def load_door_csv(source) -> pd.DataFrame:
     if duplicate_timestamps:
         raise ValueError(f"Door data contains {duplicate_timestamps} duplicate Datetime value(s).")
 
-    frame = frame.sort_values(PARSED_DATETIME_COLUMN).reset_index(drop=True)
+    if not frame[PARSED_DATETIME_COLUMN].is_monotonic_increasing:
+        raise ValueError(
+            "Door timestamps must be monotonically increasing in source row order; "
+            "unsorted input cannot be used for segmentation."
+        )
     return frame
 
 

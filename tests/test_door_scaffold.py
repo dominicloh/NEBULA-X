@@ -4,8 +4,8 @@
 No pytest (not a project dependency) -- plain assertions, matching the
 style already used by tests/test_rail_predict.py and tests/test_rail_app.py.
 
-These tests confirm the Door SCAFFOLD is sound -- they never expect a real
-prediction, since segmentation (`detect_cycles`) is not implemented yet.
+These tests check the remaining Door interfaces after segmentation was added.
+They do not train or require a classifier artifact.
 
 Run directly:
     python tests/test_door_scaffold.py
@@ -98,11 +98,7 @@ def check_unfinished_model_produces_clear_error(train_path: Path) -> None:
 
 
 def check_predict_never_uses_ground_truth_segments(train_path: Path) -> None:
-    """predict_door_file must be blocked by segmentation (NotImplementedError)
-    EVEN WHEN a real trained classifier artifact exists -- proving it never
-    falls back to Train_Segments_Answer.csv or any other ground-truth
-    shortcut to still produce a prediction.
-    """
+    """Prediction must take boundaries only from detect_cycles, never answers."""
     import inspect
 
     from src.door import config
@@ -145,33 +141,18 @@ def check_predict_never_uses_ground_truth_segments(train_path: Path) -> None:
         "src/door/predict.py's executable code (excluding docstrings) never references Train_Segments_Answer.csv",
     )
 
-    if not config.MODEL_ARTIFACT_PATH.is_file():
-        print("[SKIP] no trained Door artifact present -- cannot exercise the 'model ready but segmentation isn't' path")
-        return
-
-    try:
-        predict_door_file(train_path, model_path=config.MODEL_ARTIFACT_PATH)
-        raise AssertionError(
-            "predict_door_file succeeded with a real trained model -- this should be impossible until "
-            "detect_cycles() is implemented, and must never happen via a ground-truth shortcut"
-        )
-    except NotImplementedError:
-        _check(
-            True,
-            "predict_door_file still raises NotImplementedError (blocked by detect_cycles) even with a real trained classifier present",
-        )
+    _check("segments = detect_cycles(stream)" in code_only,
+           "predict_door_file obtains its segment boundaries from detect_cycles")
 
 
-def check_segmentation_not_implemented(train_path: Path) -> None:
+def check_segmentation_implemented(train_path: Path) -> None:
     from src.door.preprocess import load_door_csv
-    from src.door.segment import detect_cycles
+    from src.door.segment import detect_cycles, validate_segment_table
 
     stream = load_door_csv(train_path)
-    try:
-        detect_cycles(stream)
-        raise AssertionError("detect_cycles should raise NotImplementedError until it is implemented")
-    except NotImplementedError as exc:
-        _check("segment.py" in str(exc) or "detect_cycles" in str(exc), "detect_cycles raises a clear NotImplementedError with guidance")
+    segments = detect_cycles(stream)
+    _check(len(segments) > 0, "detect_cycles returns candidate cycles")
+    _check(not validate_segment_table(segments, stream), "detected cycles have valid ordered boundaries")
 
 
 def check_validator_rejects_wrong_columns() -> None:
@@ -220,10 +201,7 @@ def check_validator_rejects_invalid_labels() -> None:
 
 
 def check_pipeline_status_not_ready_despite_trained_artifact(train_path: Path) -> None:
-    """The Streamlit page's readiness check must stay False while
-    segmentation is unimplemented, even though a real trained classifier
-    artifact exists on disk right now (models/door_model.joblib).
-    """
+    """The page still requires a separate valid classifier artifact."""
     from src.door.preprocess import load_door_csv
 
     import app.door_view as door_view
@@ -231,10 +209,10 @@ def check_pipeline_status_not_ready_despite_trained_artifact(train_path: Path) -
     stream = load_door_csv(train_path)
     status = door_view._check_pipeline_status(stream)
 
-    _check(status["segmentation_ready"] is False, "pipeline status reports segmentation as NOT ready (detect_cycles unimplemented)")
+    _check(status["segmentation_ready"] is True, "pipeline status recognizes validated segmentation")
     _check(
-        status["pipeline_ready"] is False,
-        "pipeline_ready is False even if a trained classifier artifact exists -- a trained model alone must never mark Door as ready",
+        status["pipeline_ready"] == (status["segmentation_ready"] and status["classifier_ready"]),
+        "pipeline readiness requires both segmentation and a loadable classifier",
     )
 
 
@@ -298,6 +276,10 @@ def main() -> int:
 
     train_path = config.DEFAULT_DATASET_DIR / config.TRAIN_FILENAME
     if not train_path.is_file():
+        # Local smoke-test checkout keeps ignored organiser data inside the
+        # repository; production's configured sibling path stays unchanged.
+        train_path = PROJECT_ROOT / "organiser-materials" / "PS3" / "02_Datasets" / "Door" / config.TRAIN_FILENAME
+    if not train_path.is_file():
         raise FileNotFoundError(f"Cannot find the organiser Door Train.csv at: {train_path}")
 
     check_door_modules_import()
@@ -306,7 +288,7 @@ def main() -> int:
     check_missing_column_rejected(train_path)
     check_unfinished_model_produces_clear_error(train_path)
     check_predict_never_uses_ground_truth_segments(train_path)
-    check_segmentation_not_implemented(train_path)
+    check_segmentation_implemented(train_path)
     check_validator_rejects_wrong_columns()
     check_validator_rejects_invalid_labels()
     check_no_cv_leakage_in_candidate_models()
