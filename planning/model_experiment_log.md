@@ -17,6 +17,33 @@ Rail Corrugation is a file-level multi-class classification problem. Final scori
 | ID | Date/time | Model | Features | Key parameters | Validation method | Result | Decision |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | [DOOR EXP ID] | [DATE/TIME] | [MODEL] | [FEATURES] | [PARAMETERS] | [METHOD] | [RESULT] | [KEEP/MODIFY/REJECT] |
+| DOOR-003 | 2026-09-19 | Dummy most frequent | 29 detected-cycle features | Default | Repeated stratified 5-fold x 10 | Macro F1 0.421 +/- 0.000; abnormal recall 0 | Baseline only |
+| DOOR-004 | 2026-09-19 | StandardScaler + balanced Logistic Regression | Same 29 features | seed 42 | Same 50 folds | Macro F1 0.9988 +/- 0.0085; abnormal recall 0.9967 | Strong alternate |
+| DOOR-005 | 2026-09-19 | Balanced Random Forest | Same 29 features | 300 trees, seed 42 | Same 50 folds | Macro F1 1.000 +/- 0.000; abnormal recall 1.000 | Selected |
+
+Stage 3 used 18,036 Train readings and automatically detected 110 cycles, each
+matched exactly once to the official answer boundaries (IoU 1.000). The 29
+features are cycle duration plus seven statistics for each of motor current,
+motor voltage, back EMF, and door leaf position; see `src/door/features.py`.
+Neither absolute time, cycle order, nor answer fields enter the model.
+
+For the selected Random Forest, a separate fixed stratified five-fold
+out-of-fold run gave macro F1 1.000, balanced accuracy 1.000, and Normal /
+Abnormal resistance precision, recall, and F1 all 1.000. Confusion matrix
+(rows true, columns predicted; Normal then Abnormal resistance):
+`[[80, 0], [0, 30]]`. With the automatically detected exact boundaries,
+the Info Kit's same-label greedy IoU-weighted F1 on these Train out-of-fold
+predictions was 1.000. This is a Train estimate, not hidden Test accuracy.
+
+The chronological stress test trained on the first 88 cycles (65 Normal,
+23 abnormal) and tested on the last 22 (15 Normal, 7 abnormal): macro F1
+1.000, abnormal recall 1.000. A shuffled-label fixed five-fold check gave
+macro F1 0.560, below the unshuffled 1.000. These checks do not establish
+generalisation to other doors or recordings. The final model was refit on all
+110 Train cycles. Test inference produced 38 detected cycles: 28 predicted
+Normal and 10 predicted Abnormal resistance. The Test class distribution is
+not evidence of accuracy. Full aggregate metrics are in
+`output/door/classification/summary.json`.
 
 ## Rail experiment summary table
 

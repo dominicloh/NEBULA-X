@@ -18,6 +18,7 @@ Usage (once a separately validated classifier artifact exists):
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -32,6 +33,7 @@ from src.door.features import extract_cycle_features  # noqa: E402
 from src.door.model import load_door_pipeline  # noqa: E402
 from src.door.preprocess import load_door_csv  # noqa: E402
 from src.door.segment import detect_cycles  # noqa: E402
+from src.door.validate_predictions import validate_door_predictions_file, validate_door_predictions_frame  # noqa: E402
 from src.export_results import export_official_predictions  # noqa: E402
 
 
@@ -70,18 +72,24 @@ def predict_door_file(source, model_path=None) -> tuple[pd.DataFrame, pd.DataFra
             "Train and save one first with: python src/door/train.py --finalize"
         )
     artifact = load_door_pipeline(model_path)
+    if not isinstance(artifact, dict) or not isinstance(artifact.get("feature_names"), list):
+        raise ValueError("Door model artifact lacks its ordered feature schema.")
+    if artifact.get("segmentation_threshold_ms") != config.SEGMENTATION_CONFIG["gap_threshold_ms"]:
+        raise ValueError("Door model artifact segmentation threshold differs from frozen config.")
+    if set(artifact.get("class_labels", [])) != set(config.VALID_DOOR_LABELS):
+        raise ValueError("Door model artifact has unexpected class labels.")
 
     stream = load_door_csv(source)
     # Boundaries come only from the sensor stream, never the answer file.
     segments = detect_cycles(stream)
 
-    pipeline = artifact["pipeline"] if isinstance(artifact, dict) else artifact
-    feature_names = artifact["feature_names"] if isinstance(artifact, dict) else None
-    class_labels = artifact["class_labels"] if isinstance(artifact, dict) else list(config.VALID_DOOR_LABELS)
+    pipeline = artifact["pipeline"]
+    feature_names = artifact["feature_names"]
+    class_labels = artifact["class_labels"]
 
     features = extract_cycle_features(stream, segments)
-    if feature_names is not None:
-        features = features.reindex(columns=feature_names)
+    if list(features.columns) != feature_names:
+        raise ValueError("Door feature schema/order differs from the frozen model artifact.")
 
     predictions = pipeline.predict(features)
 
@@ -91,6 +99,7 @@ def predict_door_file(source, model_path=None) -> tuple[pd.DataFrame, pd.DataFra
         "prediction": list(predictions),
     }
     official_df = pd.DataFrame(official_rows, columns=list(config.OFFICIAL_OUTPUT_COLUMNS))
+    validate_door_predictions_frame(official_df, expected_segments=segments)
 
     detailed_df = official_df.copy()
     if hasattr(pipeline, "predict_proba"):
@@ -114,7 +123,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    official_df, _detailed_df = predict_door_file(args.source, model_path=args.model_path)
+    official_df, detailed_df = predict_door_file(args.source, model_path=args.model_path)
 
     output_path = Path(args.output)
     config_dict = {
@@ -123,6 +132,16 @@ def main() -> int:
         "subsystem": "door",
     }
     export_official_predictions(official_df, output_path, config_dict)
+    validate_door_predictions_file(output_path, verbose=False, test_source=Path(args.source))
+    diagnostics_dir = config.PROJECT_ROOT / "output" / "door" / "classification"
+    diagnostics_dir.mkdir(parents=True, exist_ok=True)
+    detailed_df.to_csv(diagnostics_dir / "test_diagnostics.csv", index=False)
+    (diagnostics_dir / "test_prediction_summary.json").write_text(
+        json.dumps({"detected_cycles": len(official_df),
+                    "class_counts": official_df["prediction"].value_counts().to_dict(),
+                    "note": "Test labels are hidden; this is a prediction distribution, not accuracy."}, indent=2),
+        encoding="utf-8",
+    )
     print(f"Saved {len(official_df)} predicted segment(s) to: {output_path}")
     return 0
 

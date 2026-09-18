@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-"""Door official prediction CSV validator.
-
-Checks a `door_predictions.csv` against the official schema (Info Kit
-Section 3 + `04_Example_Submission/door_predictions.csv`). Reuses the
-shared `validate_door_predictions` (columns, no nulls, allowed labels) from
-`src/common/validation.py`, then adds Door-specific checks that validator
-doesn't cover: start-before-end ordering and duplicate segments.
-
-This validator does NOT require the hidden ground-truth labels -- it only
-checks the structure and content of the file you're about to submit.
-"""
+"""Validate Door submission schema and exact boundaries against the frozen detector."""
 
 from __future__ import annotations
 
@@ -25,91 +15,63 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.common.validation import validate_door_predictions  # noqa: E402
 from src.door import config  # noqa: E402
-from src.door.preprocess import parse_door_datetime  # noqa: E402
-
-DEFAULT_PREDICTIONS_PATH = config.PREDICTIONS_OUTPUT_PATH
-
-
-def _parse_timestamp_column(predictions: pd.DataFrame, column: str) -> pd.Series:
-    """Parse a start_time/end_time column, accepting either the native Door
-    format or a standard ISO timestamp (the Info Kit allows both).
-    """
-
-    def _parse_one(value: str):
-        try:
-            return parse_door_datetime(str(value))
-        except ValueError:
-            parsed = pd.to_datetime(value, errors="coerce")
-            if pd.isna(parsed):
-                raise ValueError(
-                    f"Could not parse {column} value {value!r} as either the native Door format "
-                    "(Year-Month-Date-Hour-Minute-Second-Millisecond) or a standard ISO timestamp."
-                )
-            return parsed
-
-    return predictions[column].map(_parse_one)
+from src.door.preprocess import load_door_csv, parse_door_datetime  # noqa: E402
+from src.door.segment import detect_cycles  # noqa: E402
 
 
-def validate_door_predictions_file(predictions_path: Path, verbose: bool = True) -> None:
+def validate_door_predictions_frame(predictions: pd.DataFrame, expected_segments: pd.DataFrame | None = None) -> None:
+    """Reject malformed, unordered, overlapping, or unexpected cycle predictions."""
+    if any(str(column).startswith("Unnamed") for column in predictions.columns):
+        raise ValueError("Door predictions contain an unnamed index column; save with index=False.")
+    validate_door_predictions(predictions)
+    try:
+        starts = predictions["start_time"].map(lambda value: parse_door_datetime(str(value)))
+        ends = predictions["end_time"].map(lambda value: parse_door_datetime(str(value)))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Door predictions contain invalid official timestamp text: {exc}") from exc
+    if (starts >= ends).any():
+        raise ValueError("Door prediction start_time must precede end_time.")
+    if not starts.is_monotonic_increasing or not ends.is_monotonic_increasing:
+        raise ValueError("Door predictions must be in chronological order.")
+    if (starts.iloc[1:].reset_index(drop=True) <= ends.iloc[:-1].reset_index(drop=True)).any():
+        raise ValueError("Door prediction cycles overlap or share a boundary.")
+    if predictions.duplicated(["start_time", "end_time"]).any():
+        raise ValueError("Door predictions contain duplicate cycles.")
+    if expected_segments is not None:
+        if len(predictions) != len(expected_segments):
+            raise ValueError(f"Door prediction count differs from detected cycles: {len(predictions)} versus {len(expected_segments)}.")
+        for column in ("start_time", "end_time"):
+            if predictions[column].astype(str).tolist() != expected_segments[column].astype(str).tolist():
+                raise ValueError(f"Door prediction {column} values differ from detect_cycles boundaries.")
+
+
+def validate_door_predictions_file(predictions_path: Path, verbose: bool = True,
+                                   test_source: Path | None = None) -> None:
+    """Validate the official file against Test.csv without hidden labels."""
+    predictions_path = Path(predictions_path)
     if not predictions_path.is_file():
         raise FileNotFoundError(f"Door predictions file not found: {predictions_path}")
-
-    predictions = pd.read_csv(predictions_path)
-    if predictions.columns[0].startswith("Unnamed"):
-        raise ValueError(
-            f"Door predictions file has an unnamed index column ({predictions.columns[0]!r}) as its "
-            "first column -- likely written with to_csv(index=True). Re-save with index=False."
-        )
-
-    # 1. Generic schema: exact columns/order, no nulls, only allowed labels.
-    validate_door_predictions(predictions)
+    predictions = pd.read_csv(predictions_path, dtype=str)
+    validate_door_predictions_frame(predictions)
+    if predictions_path.name != config.OFFICIAL_OUTPUT_FILENAME:
+        raise ValueError(f"Official Door output filename must be {config.OFFICIAL_OUTPUT_FILENAME}.")
+    if test_source is None:
+        test_source = config.DEFAULT_DATASET_DIR / config.TEST_FILENAME
+        if not test_source.is_file():
+            test_source = PROJECT_ROOT / "organiser-materials" / "PS3" / "02_Datasets" / "Door" / config.TEST_FILENAME
+    expected = detect_cycles(load_door_csv(test_source))
+    validate_door_predictions_frame(predictions, expected_segments=expected)
     if verbose:
-        print(f"[OK] Columns are exactly {list(predictions.columns)}, no missing values, only allowed labels.")
-
-    # 2. start_time must be before end_time for every predicted segment.
-    starts = _parse_timestamp_column(predictions, "start_time")
-    ends = _parse_timestamp_column(predictions, "end_time")
-    invalid_order = int((starts >= ends).sum())
-    if invalid_order:
-        raise ValueError(f"{invalid_order} predicted segment(s) have start_time >= end_time.")
-    if verbose:
-        print("[OK] Every predicted segment has start_time before end_time.")
-
-    # 3. No duplicate segments (identical start_time + end_time predicted more than once).
-    duplicate_mask = predictions.duplicated(subset=["start_time", "end_time"], keep=False)
-    n_duplicates = int(duplicate_mask.sum())
-    if n_duplicates:
-        raise ValueError(f"{n_duplicates} row(s) share a duplicate (start_time, end_time) pair.")
-    if verbose:
-        print("[OK] No duplicate (start_time, end_time) segments.")
-
-    # 4. Filename check (a warning, not a hard failure -- draft files during
-    #    development may reasonably be named something else).
-    if predictions_path.name != config.OFFICIAL_OUTPUT_FILENAME and verbose:
-        print(
-            f"WARNING: file is named {predictions_path.name!r}, not the official "
-            f"{config.OFFICIAL_OUTPUT_FILENAME!r}. Rename it before final submission."
-        )
-
-    if verbose:
-        print(f"\nAll Door submission checks passed for: {predictions_path}")
-        print("NOTE: this validator does not and cannot check IoU-weighted F1 (the official metric) --")
-        print("that requires the hidden ground-truth segments, which the team does not have.")
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate the official Door door_predictions.csv.")
-    parser.add_argument(
-        "--predictions",
-        default=str(DEFAULT_PREDICTIONS_PATH),
-        help=f"Path to door_predictions.csv. Default: {DEFAULT_PREDICTIONS_PATH}",
-    )
-    return parser.parse_args()
+        print(f"[OK] {len(predictions)} ordered, non-overlapping Door predictions with exact detected Test boundaries.")
+        print(f"[OK] Official filename, columns, timestamp text, labels, and no unnamed index: {predictions_path}")
 
 
 def main() -> int:
-    args = parse_args()
-    validate_door_predictions_file(Path(args.predictions))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--predictions", type=Path, default=config.PREDICTIONS_OUTPUT_PATH)
+    parser.add_argument("--test", type=Path, help="Optional explicit Test.csv path for local validation")
+    args = parser.parse_args()
+    validate_door_predictions_file(args.predictions, test_source=args.test)
     return 0
 
 
@@ -117,8 +79,8 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except (FileNotFoundError, ValueError) as exc:
-        print(f"\nVALIDATION FAILED: {exc}", file=sys.stderr)
+        print(f"VALIDATION FAILED: {exc}", file=sys.stderr)
         raise SystemExit(1)
 
 
-__all__ = ["validate_door_predictions_file"]
+__all__ = ["validate_door_predictions_frame", "validate_door_predictions_file"]

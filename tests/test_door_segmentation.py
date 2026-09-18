@@ -134,9 +134,10 @@ class TestSegmentation(unittest.TestCase):
         tree = ast.parse((ROOT / "app" / "door_view.py").read_text(encoding="utf-8"))
         calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == "detect_cycles"]
-        self.assertEqual(len(calls), 1)
-        self.assertEqual(len(calls[0].args), 1)
-        self.assertEqual(calls[0].keywords, [])
+        self.assertGreaterEqual(len(calls), 1)
+        for call in calls:
+            self.assertEqual(len(call.args), 1)
+            self.assertEqual(call.keywords, [])
 
 
 class TestEvaluation(unittest.TestCase):

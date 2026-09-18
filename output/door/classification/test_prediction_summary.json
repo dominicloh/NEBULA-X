@@ -1,0 +1,8 @@
+{
+  "detected_cycles": 38,
+  "class_counts": {
+    "Normal": 28,
+    "Abnormal resistance": 10
+  },
+  "note": "Test labels are hidden; this is a prediction distribution, not accuracy."
+}

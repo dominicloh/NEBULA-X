@@ -84,7 +84,7 @@ SEGMENTATION_CONFIG = {"gap_threshold_ms": CANDIDATE_GAP_THRESHOLD_MS}
 # --- Where a trained artifact should live once training is implemented -----
 # Mirrors models/rail_corrugation_model.joblib's convention.
 MODEL_ARTIFACT_PATH = PROJECT_ROOT / "models" / "door_model.joblib"
-MODEL_OUTPUT_DIR = PROJECT_ROOT / "output" / "door" / "baseline"
+MODEL_OUTPUT_DIR = PROJECT_ROOT / "output" / "door" / "classification"
 PREDICTIONS_OUTPUT_PATH = PROJECT_ROOT / "predictions" / OFFICIAL_OUTPUT_FILENAME
 
 # Fixed everywhere a random seed is needed, for reproducibility (same

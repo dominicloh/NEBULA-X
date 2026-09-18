@@ -175,13 +175,9 @@ feature vector (duration, mean/std/peak of the motor signals, etc. — see
 `src/door/features.py`), then train a classifier on the 110 labelled
 examples from `Train_Segments_Answer.csv`.
 
-**You can start on Stage 2 before Stage 1 is finished** — `Train_Segments_Answer.csv`
-already gives you real segment boundaries to extract features and train a
-classifier from. `src/door/train.py` does exactly this: it trains and
-evaluates a classifier using the *official* ground-truth segments, without
-needing your own segmentation code to work yet. This is a genuinely useful
-first step, not a shortcut around the real problem — the real problem
-(processing `Test.csv` end-to-end) still needs Stage 1 finished too.
+The final `src/door/train.py` uses automatically detected Train boundaries,
+then matches them one-to-one with the official answer file for labels.
+Official boundaries never replace detected boundaries in feature extraction.
 
 ## 5. Why segmentation mistakes affect the final score
 
@@ -211,21 +207,11 @@ independently.
    cycle windows, then check each candidate against `Train_Segments_Answer.csv`
    (how close are your boundaries to the true ones? did you find all 110?
    did you invent any extra ones?).
-3. Once segmentation looks reasonable on `Train.csv`, use
-   `src/door/train.py` (which already works against the *official* segments)
-   to compare baseline classifiers (`DummyClassifier`, class-weighted
-   Logistic Regression, class-weighted Random Forest) using **macro F1** as
-   a classification-only proxy metric — this is NOT the official IoU-weighted
-   F1 (that needs your segmentation plugged in too), but it's a fast, honest
-   way to check "if segmentation were perfect, how good is my classifier?"
-
-   **Confirmed result (2026-09-19 run of `python src/door/train.py`):
-   Classification-only cross-validation using official ground-truth cycle
-   boundaries achieved 1.000 macro F1. This is a proxy result and not the
-   official end-to-end IoU-weighted F1. At the time of that run, automatic
-   cycle segmentation was unfinished.** Don't read this as "the Door model works" — it only means
-   the two classes are easy to tell apart once you're handed perfect
-   boundaries, which your own `detect_cycles()` won't produce on day one.
+3. Use `src/door/train.py` to compare Dummy, class-weighted Logistic
+   Regression, and class-weighted Random Forest on automatically detected
+   Train cycles. It reports macro F1 and the official IoU-weighted score on
+   out-of-fold Train predictions. The validated Train detector has exact
+   boundaries, but hidden Test performance remains unknown.
 4. Only after both stages work reasonably on `Train.csv` should you run the
    full pipeline (`detect_cycles` -> `extract_cycle_features` -> trained
    model) on `Test.csv` to produce `door_predictions.csv`.
@@ -248,10 +234,10 @@ and justify your own train/validation split").
 | `src/door/segment.py` | `detect_cycles()` | Implemented and validated on Train; see Stage 2 result below |
 | `src/door/features.py` | `extract_cycle_features()` -- turns segments into a feature table | Done (works with any valid segments, including the official ones) |
 | `src/door/model.py` | Candidate baseline models | Done (Dummy / Logistic Regression / Random Forest) |
-| `src/door/train.py` | Training/evaluation workflow | Done for classification-only evaluation using official segments; extend once `detect_cycles` works |
-| `src/door/predict.py` | `predict_door_file()` -- full inference pipeline | Scaffolded; will work once `detect_cycles` + a trained model both exist |
+| `src/door/train.py` | Training/evaluation workflow | Done using automatically detected, exactly matched Train cycles |
+| `src/door/predict.py` | `predict_door_file()` -- full inference pipeline | Done using frozen detector and final model |
 | `src/door/validate_predictions.py` | Checks your `door_predictions.csv` | Done and runnable now |
-| `app/door_view.py` | Streamlit page | Done as a safe base -- extend once predictions are real |
+| `app/door_view.py` | Streamlit page | Done with validation, review table, signal plots, and official download |
 
 ## 8. Exact order to work in
 
@@ -260,8 +246,8 @@ and justify your own train/validation split").
 3. Open `Train.csv` and `Train_Segments_Answer.csv` yourself (e.g. in a
    notebook) and plot a couple of known cycles to build intuition.
 4. Implement `detect_cycles()` in `segment.py` against `Train.csv` only.
-5. Run `python src/door/train.py` to see classifier performance using the
-   official segments (this already works without your segmentation code).
+5. Run `python src/door/train.py` to evaluate classifier performance on
+   automatically detected Train segments matched to official labels.
 6. Once `detect_cycles()` is solid, wire it into `predict.py` and run it on
    `Test.csv`.
 7. Validate with `python src/door/validate_predictions.py`.
@@ -273,8 +259,7 @@ and justify your own train/validation split").
 # Stage 0: read-only data inspection (works right now)
 python src/door/inspect_data.py
 
-# Stage 2 preview: classifier comparison using OFFICIAL segments
-# (works right now, does not need your segmentation code)
+# Stage 3 classifier comparison using automatically detected Train segments
 python src/door/train.py
 
 # Save a trained classifier artifact (only once you're happy with it)
@@ -290,11 +275,11 @@ python src/door/validate_predictions.py --predictions predictions/door_predictio
 ## 10. Definition of done
 
 - [x] `detect_cycles()` matches all 110 official Train cycles with mean IoU 1.000 and zero boundary error; see Stage 2 result below.
-- [x] `python src/door/train.py` reports macro F1 and per-class precision/recall/F1 for at least 2 real candidate models, compared against a `DummyClassifier` floor. Classification-only cross-validation using official ground-truth cycle boundaries achieved 1.000 macro F1. This is a proxy result and not the official end-to-end IoU-weighted F1; Stage 2 segmentation results are documented below.
-- [ ] `python src/door/predict.py <Test.csv>` runs end-to-end and produces `predictions/door_predictions.csv`
-- [ ] `python src/door/validate_predictions.py` passes with no errors
-- [ ] The Streamlit Door page shows real validation/status, never an invented prediction
-- [ ] No code path in `src/door/` or `app/door_view.py` ever reads `Test.csv` to make a segmentation, feature, or model decision
+- [x] `python src/door/train.py` compares Dummy, Logistic Regression, and Random Forest on detected Train cycles and reports per-class and official-style out-of-fold metrics; Stage 3 results are documented below.
+- [x] `python src/door/predict.py <Test.csv>` runs end-to-end and produces `predictions/door_predictions.csv` with 38 detected cycles.
+- [x] `python src/door/validate_predictions.py` passes with no errors.
+- [x] The Streamlit Door page shows real validated predictions and evidence.
+- [x] Test.csv is used only for frozen-rule inference, never for model, feature, or threshold selection.
 
 ## 11. Common mistakes to avoid
 
@@ -355,8 +340,32 @@ classification quality or official end-to-end IoU-weighted F1. The Door app
 must remain **NOT READY** until the classification and prediction pipeline is
 verified end-to-end.
 
-**Exact next step (Stage 3):** integrate the frozen detected cycles with
-`extract_cycle_features()` and a validated classifier, evaluate end-to-end on
-a held-out portion of Train, then generate and validate the official
-`start_time,end_time,prediction` output from Test without answer-file access.
-- **No official train/validation split is prescribed** -- per the PS3 spec, you must design and justify your own (e.g. holding out some of `Train.csv`'s labelled segments).
+Stage 3 has since completed those steps. No official train/validation split
+was prescribed; the team used repeated stratified five-fold CV and a
+chronological 88/22-cycle stress test.
+
+## Stage 3 classification and submission result (2026-09-19)
+
+`train.py` uses the frozen detector on the 18,036-row Train stream. All 110
+detected boundaries exactly match unique official cycles before answer labels
+are attached. The model receives 29 features: duration, plus mean, standard
+deviation, minimum, maximum, range, squared energy, and first-to-last slope
+for current, voltage, back EMF, and leaf position. It never receives absolute
+time, cycle index, operation, answer row, or status as an input feature.
+
+Repeated stratified five-fold x 10 macro F1: Dummy 0.421, scaled balanced
+Logistic Regression 0.9988 +/- 0.0085, balanced Random Forest 1.000 +/-
+0.000. Random Forest was selected on Train only. Its separate fixed
+out-of-fold confusion matrix (Normal, Abnormal resistance) is
+`[[80, 0], [0, 30]]`; macro F1 and the Info Kit's IoU-weighted F1 with
+automatically detected Train boundaries are both 1.000. The last 22-cycle
+chronological holdout also scored macro F1 1.000, while a shuffled-label
+check scored 0.560. These unusually high Train results do not establish
+hidden Test performance or reliability on other doors.
+
+The frozen `models/door_model.joblib` is about 304 KB. The final pipeline
+produced 38 Test cycles, predicted as 28 Normal and 10 Abnormal resistance.
+`predictions/door_predictions.csv` passed exact boundary, schema, label,
+order, overlap, duplicate, and timestamp validation. The Door Streamlit page
+classifies uploaded streams without retraining and offers the validated
+official CSV and a separate review table. Test labels remain hidden.

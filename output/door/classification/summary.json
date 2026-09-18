@@ -1,0 +1,207 @@
+{
+  "train_cycles": 110,
+  "class_counts": {
+    "Normal": 80,
+    "Abnormal resistance": 30
+  },
+  "feature_count": 29,
+  "feature_names": [
+    "duration_seconds",
+    "Motor_currentmA_mean",
+    "Motor_currentmA_std",
+    "Motor_currentmA_min",
+    "Motor_currentmA_max",
+    "Motor_currentmA_range",
+    "Motor_currentmA_energy",
+    "Motor_currentmA_slope",
+    "Motor_Voltage10mV_mean",
+    "Motor_Voltage10mV_std",
+    "Motor_Voltage10mV_min",
+    "Motor_Voltage10mV_max",
+    "Motor_Voltage10mV_range",
+    "Motor_Voltage10mV_energy",
+    "Motor_Voltage10mV_slope",
+    "Motor_electrodynamic_force_mean",
+    "Motor_electrodynamic_force_std",
+    "Motor_electrodynamic_force_min",
+    "Motor_electrodynamic_force_max",
+    "Motor_electrodynamic_force_range",
+    "Motor_electrodynamic_force_energy",
+    "Motor_electrodynamic_force_slope",
+    "Door_leaf_position_mean",
+    "Door_leaf_position_std",
+    "Door_leaf_position_min",
+    "Door_leaf_position_max",
+    "Door_leaf_position_range",
+    "Door_leaf_position_energy",
+    "Door_leaf_position_slope"
+  ],
+  "cv": {
+    "method": "RepeatedStratifiedKFold",
+    "folds": 5,
+    "repeats": 10,
+    "random_state": 42,
+    "oof_method": "fixed shuffled StratifiedKFold"
+  },
+  "models": {
+    "DummyMostFrequent": {
+      "mean_macro_f1": 0.4210526315789474,
+      "std_macro_f1": 5.551115123125783e-17,
+      "min_macro_f1": 0.42105263157894735,
+      "max_macro_f1": 0.42105263157894735,
+      "mean_balanced_accuracy": 0.5,
+      "mean_abnormal_recall": 0.0,
+      "oof_macro_f1": 0.42105263157894735,
+      "oof_balanced_accuracy": 0.5,
+      "report_dict": {
+        "Normal": {
+          "precision": 0.7272727272727273,
+          "recall": 1.0,
+          "f1-score": 0.8421052631578947,
+          "support": 80.0
+        },
+        "Abnormal resistance": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 30.0
+        },
+        "accuracy": 0.7272727272727273,
+        "macro avg": {
+          "precision": 0.36363636363636365,
+          "recall": 0.5,
+          "f1-score": 0.42105263157894735,
+          "support": 110.0
+        },
+        "weighted avg": {
+          "precision": 0.5289256198347108,
+          "recall": 0.7272727272727273,
+          "f1-score": 0.6124401913875598,
+          "support": 110.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          80,
+          0
+        ],
+        [
+          30,
+          0
+        ]
+      ]
+    },
+    "LogisticRegression": {
+      "mean_macro_f1": 0.9987878787878788,
+      "std_macro_f1": 0.008484848484848475,
+      "min_macro_f1": 0.9393939393939394,
+      "max_macro_f1": 1.0,
+      "mean_balanced_accuracy": 0.9983333333333334,
+      "mean_abnormal_recall": 0.9966666666666667,
+      "oof_macro_f1": 1.0,
+      "oof_balanced_accuracy": 1.0,
+      "report_dict": {
+        "Normal": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 80.0
+        },
+        "Abnormal resistance": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 30.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 110.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 110.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          80,
+          0
+        ],
+        [
+          0,
+          30
+        ]
+      ]
+    },
+    "RandomForest": {
+      "mean_macro_f1": 1.0,
+      "std_macro_f1": 0.0,
+      "min_macro_f1": 1.0,
+      "max_macro_f1": 1.0,
+      "mean_balanced_accuracy": 1.0,
+      "mean_abnormal_recall": 1.0,
+      "oof_macro_f1": 1.0,
+      "oof_balanced_accuracy": 1.0,
+      "report_dict": {
+        "Normal": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 80.0
+        },
+        "Abnormal resistance": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 30.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 110.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 110.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          80,
+          0
+        ],
+        [
+          0,
+          30
+        ]
+      ]
+    }
+  },
+  "chosen_model": "RandomForest",
+  "chronological_holdout": {
+    "train_cycles": 88,
+    "holdout_cycles": 22,
+    "train_class_counts": {
+      "Normal": 65,
+      "Abnormal resistance": 23
+    },
+    "holdout_class_counts": {
+      "Normal": 15,
+      "Abnormal resistance": 7
+    },
+    "macro_f1": 1.0,
+    "abnormal_recall": 1.0
+  },
+  "permuted_label_oof_macro_f1": 0.5602198900549725,
+  "train_oof_iou_weighted_f1": 1.0,
+  "metric_note": "Train classification on automatically detected, exact-match cycles; hidden Test accuracy is unknown."
+}
