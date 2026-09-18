@@ -7,22 +7,22 @@ The project addresses a shared requirement for rail condition-monitoring enginee
 ## 2. Door subsystem
 
 ### Data
-The Door task uses a single continuous test stream named `Test.csv`, and the pipeline must segment and classify operating cycles over time. The exact schema and timestamp rule remain pending confirmation from the Door Info Kit.
+The Door task uses a single continuous Test stream and 17 confirmed input columns. Train has 18,036 readings and 110 labelled cycles (80 Normal, 30 Abnormal resistance); Test has 6,253 unlabelled readings.
 
 ### Segmentation
-The Door pipeline is designed to segment a continuous stream into predicted open/close cycles before classifying each segment. The interface is in place, but the real cycle detection method must be confirmed once the Info Kit is read.
+The frozen Train-derived detector splits only when consecutive source timestamps differ by more than 100 ms. It preserves original timestamp text and source order. On Train, 110 detected cycles matched all 110 official cycles one-to-one with mean, median, and minimum IoU 1.000 and zero boundary error. On Test, it found 38 ordered, non-overlapping cycles.
 
 ### Features
-Potential Door features include cycle duration, current statistics, voltage summaries, back-EMF summaries, position progression and movement-phase timing. These are candidate features only until the Info Kit confirms the signal set and cycle rules.
+The final 29 features are duration plus mean, standard deviation, minimum, maximum, range, squared-signal energy, and first-to-last slope for each of four channels: motor current, voltage, back EMF, and leaf position. The feature matrix excludes labels, answer-file columns, absolute time, and cycle index. Features are extracted from automatically detected boundaries on both Train and Test.
 
 ### Model
-The Door model is a binary classifier for `Normal` vs `Abnormal resistance`. The final evaluation must use IoU-weighted F1 across temporal segments, so segment timing and class label both matter.
+Train-only model selection compared a most-frequent Dummy (mean macro F1 0.421), scaled balanced Logistic Regression (0.9988 +/- 0.0085), and balanced Random Forest (1.000 +/- 0.000) using repeated stratified five-fold CV over 10 repeats. All learned scaling is inside the Logistic Regression Pipeline. Random Forest was selected and refit on all 110 detected and exactly matched Train cycles. A separate fixed five-fold out-of-fold run gave Normal and Abnormal resistance precision, recall, and F1 of 1.000, with confusion matrix `[[80, 0], [0, 30]]`; macro F1 and balanced accuracy were 1.000. A chronological 88/22-cycle holdout gave macro F1 1.000. Shuffled-label out-of-fold macro F1 fell to 0.560. Small sample size and shared-stream dependence limit these estimates.
 
 ### IoU-weighted F1
-This is the official scoring rule for the Door task. A door submission is only complete when both the predicted boundaries and predicted label match the task specification and validation rules.
+The official Info Kit matches same-label overlapping segments greedily by descending IoU, then computes the harmonic mean of soft recall and precision from summed IoU credit. Using automatic Train boundaries and out-of-fold labels, this score was 1.000. Segmentation IoU and classification macro F1 are reported separately above to show their contributions. Hidden Test scoring is unavailable.
 
 ### Results
-No final Door results are claimed here. The project intentionally leaves this section pending until the Info Kit and trained pipeline are available.
+The frozen model at `models/door_model.joblib` generated 38 Test predictions (28 Normal, 10 Abnormal resistance). `predictions/door_predictions.csv` contains only `start_time,end_time,prediction` and passed validation against the detector's exact Test boundaries. The Test class distribution does not measure accuracy. The Door Streamlit page validates uploads, displays cycle-level confidence and signal evidence, and downloads the validated submission. Model confidence is a review cue, not a safety threshold; signal evidence does not prove mechanical root cause.
 
 ## 3. Rail Corrugation subsystem
 
@@ -81,11 +81,11 @@ predictions.zip
 
 The archives contain no raw data and no extra folders. Each CSV must follow the official subsystem schema exactly.
 
-**Current status:** `rail_predictions.csv` exists and has passed all validation checks (`src/rail_corrugation/validate_predictions.py`). `door_predictions.csv` is not yet available -- Door is still a scaffold (see Section 2) -- so `predictions.zip` has not been created yet; `scripts/package_predictions.py` refuses to build it until both required files exist.
+**Current status:** Both `rail_predictions.csv` and `door_predictions.csv` exist and pass their subsystem validators. Packaging and final submission remain separate team tasks.
 
 ## 7. Limitations
 
-The project intentionally avoids unsupported claims. Door segmentation and classification depend on the Info Kit and trained pipeline; Rail Corrugation also depends on its own confirmed schema and model; and any final submission must be validated against the official competition rules rather than assumptions.
+The project reports Train validation and structural Test checks separately. Hidden Test labels are unavailable, and real-world use requires validation across doors, routes, and recording conditions.
 
 ## 8. Team contributions
 
