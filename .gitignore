@@ -2,6 +2,10 @@
 data/input/**
 !data/input/README.md
 
+# Generated/processed data (reproducible from raw inputs + src/ code --
+# never the source of truth, and can be large)
+data/processed/
+
 # Organisers' materials repo (sibling folder, never copied in, but ignore
 # defensively in case it's ever nested inside this repo by mistake)
 organiser-materials/
