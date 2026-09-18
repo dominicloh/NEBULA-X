@@ -1,19 +1,17 @@
 """Shared Streamlit app for the two official PS3 subsystems.
 
-Door still intentionally stays safe until the Door segmentation pipeline is
-configured from its Info Kit (see `_door_upload_and_analysis` below) --
-untouched by the Rail Corrugation integration in this file. Rail Corrugation
-now has a frozen, validated model (see planning/model_experiment_log.md);
-its UI/processing logic lives entirely in `app/rail_view.py` to keep this
-shared file's diff minimal and avoid conflicts with Door work-in-progress.
+Rail Corrugation has a frozen, validated model (see
+planning/model_experiment_log.md); Door has a working scaffold with
+segmentation still to be implemented (see planning/door_handoff.md). Each
+subsystem's UI/processing logic lives in its own module (`app/rail_view.py`,
+`app/door_view.py`) so this shared file stays a thin, low-conflict router
+between them.
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-
-import pandas as pd
 
 try:
     import streamlit as st
@@ -24,15 +22,15 @@ except ImportError:  # pragma: no cover - optional dependency for non-UI executi
 
     st = _MissingStreamlit()
 
-# Ensure "app.rail_view" and "src...." imports resolve regardless of the
-# working directory the app is launched from (e.g. `streamlit run
-# app/streamlit_app.py` from the project root, per the README).
+# Ensure "app.rail_view"/"app.door_view" and "src...." imports resolve
+# regardless of the working directory the app is launched from (e.g.
+# `streamlit run app/streamlit_app.py` from the project root, per the README).
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# Imported at module load, but guarded: a problem loading the Rail module
-# (e.g. a missing model artifact) must never take down the Door page.
+# Imported at module load, but guarded: a problem loading either subsystem's
+# module (e.g. a missing model artifact) must never take down the other's page.
 try:
     from app.rail_view import render_rail_page
 
@@ -40,6 +38,14 @@ try:
 except Exception as exc:  # pragma: no cover - defensive guard, see _rail_upload_and_analysis
     render_rail_page = None
     _RAIL_VIEW_IMPORT_ERROR = exc
+
+try:
+    from app.door_view import render_door_page
+
+    _DOOR_VIEW_IMPORT_ERROR = None
+except Exception as exc:  # pragma: no cover - defensive guard, see _door_upload_and_analysis
+    render_door_page = None
+    _DOOR_VIEW_IMPORT_ERROR = exc
 
 VALID_DOOR_LABELS = ("Normal", "Abnormal resistance")
 VALID_RAIL_LABELS = ("Normal", "Side I", "Side II")
@@ -63,38 +69,14 @@ def _render_shared_intro():
 
 
 def _door_upload_and_analysis():
-    st.subheader("Door subsystem")
-    uploaded_file = st.file_uploader(
-        "Upload continuous Door stream",
-        type=["csv"],
-        help="Door uses a single continuous test stream named Test.csv as defined by the Door Info Kit.",
-    )
-    if uploaded_file is None:
-        st.info("Upload a Door stream to inspect the continuous signal and prepare for segmentation.")
+    # All Door UI/processing logic lives in app/door_view.py (separate
+    # module per TEAM_WORKFLOW.md, reusing src/door/*). If that module ever
+    # fails to import, Rail Corrugation stays unaffected.
+    if render_door_page is None:
+        st.error(f"Door page failed to load: {_DOOR_VIEW_IMPORT_ERROR}")
+        st.caption("Rail Corrugation is unaffected by this. See app/door_view.py and planning/door_handoff.md.")
         return
-
-    st.write(f"Uploaded file: {uploaded_file.name}")
-    try:
-        stream = pd.read_csv(uploaded_file)
-        required_fields = ["timestamp"]
-        missing = [field for field in required_fields if field not in stream.columns]
-        if missing:
-            raise ValueError(
-                "Door validation failed: required fields are missing. Confirm the exact schema from the Door Info Kit."
-            )
-        st.success("Door stream loaded successfully; schema check passed for the uploaded file.")
-        st.write(f"Rows: {len(stream)} | Columns: {list(stream.columns)}")
-        st.write(stream.head())
-    except (ValueError, TypeError, FileNotFoundError) as exc:  # pragma: no cover - UI-level guard
-        st.error(f"Door validation failed: {exc}")
-        return
-
-    st.warning(
-        "Door segmentation and classification are not yet active until the Door Info Kit confirms the exact cycle rules, timestamp format and labels. This app stops safely before generating fake segment boundaries or labels."
-    )
-
-    if st.button("Analyse Door stream"):
-        st.error("Model not ready: Door segmentation/classification is pending the Info Kit and trained pipeline.")
+    render_door_page()
 
 
 def _rail_upload_and_analysis():

@@ -41,9 +41,9 @@ Rail Corrugation: upload file(s) → extract file features → classify each fil
 ## Current implementation status
 
 - **Rail Corrugation is functional end to end**: a frozen, validated baseline model, a reusable feature/prediction pipeline, an official `rail_predictions.csv`, and a dedicated Streamlit page (`app/rail_view.py`) with validation, an engineer review queue, explainability and signal evidence. See **Rail Corrugation status** below for the confirmed numbers.
-- **Door remains an intentional scaffold.** It stops with clear "model not ready" messages until the Door Info Kit's exact cycle rules, timestamp format and labels are confirmed and a pipeline is trained. No Door results are claimed anywhere in this repository.
-- The shared app (`app/streamlit_app.py`) provides one subsystem selector; Door and Rail Corrugation stay separate at the module level (`src/door/`, `src/rail_corrugation/`, `app/rail_view.py`) so one subsystem's work never blocks the other's.
-- Prediction exports are validated against the official schemas (`src/common/validation.py`, `src/rail_corrugation/validate_predictions.py`) rather than fabricated.
+- **Door has a working scaffold, not yet a working pipeline.** The official Door Info Kit has been fully read and its exact schema, timestamp format, class balance and scoring rule are confirmed (see `planning/door_handoff.md`). Data loading, feature extraction, model comparison and output validation are implemented and runnable now; **cycle segmentation (`src/door/segment.py::detect_cycles`) is the one piece still to be implemented** by the Door teammate. No Door prediction results are claimed anywhere in this repository.
+- The shared app (`app/streamlit_app.py`) provides one subsystem selector; Door and Rail Corrugation stay separate at the module level (`src/door/`, `src/rail_corrugation/`, `app/door_view.py`, `app/rail_view.py`) so one subsystem's work never blocks the other's.
+- Prediction exports are validated against the official schemas (`src/common/validation.py`, `src/rail_corrugation/validate_predictions.py`, `src/door/validate_predictions.py`) rather than fabricated.
 
 ## Rail Corrugation status
 
@@ -55,6 +55,19 @@ Rail Corrugation: upload file(s) → extract file features → classify each fil
 | Validation estimate | Mean macro F1 0.779 ± 0.091 (repeated CV); out-of-fold macro F1 0.807 (fixed 5-fold) |
 | Frozen model artifact | `models/rail_corrugation_model.joblib` (~10 KB; trained once, never retrained by the app) |
 | Official prediction output | `predictions/rail_predictions.csv` (`file_id,prediction`, one row per official Test file, all validation checks passed) |
+
+## Door status
+
+Full handoff guide (confirmed dataset facts, exact schemas, safe first approach, open questions): **[planning/door_handoff.md](planning/door_handoff.md)**.
+
+| Item | Value |
+| --- | --- |
+| Confirmed dataset | `Train.csv` (18,036 rows), `Test.csv` (6,253 rows), `Train_Segments_Answer.csv` (110 labelled segments: 80 Normal / 30 Abnormal resistance) -- see `planning/door_handoff.md` |
+| Implemented now | Data loading + validation (`src/door/preprocess.py`), feature extraction from any valid segments (`src/door/features.py`), baseline model comparison using the *official* segments (`src/door/train.py`), output validation (`src/door/validate_predictions.py`), read-only inspection (`src/door/inspect_data.py`) |
+| Classification-only validation result | Classification-only cross-validation using official ground-truth cycle boundaries achieved 1.000 macro F1. This is a proxy result and not the official end-to-end IoU-weighted F1. Automatic cycle segmentation remains unfinished. |
+| Not implemented yet | Cycle segmentation (`src/door/segment.py::detect_cycles`) -- required before `predict.py` can produce real predictions from `Test.csv`. `predict.py` never uses the official ground-truth segments for prediction; it only ever calls `detect_cycles` on the uploaded stream. |
+| Official metric | IoU-weighted F1 over predicted segments (not plain classification accuracy) -- see the Door Info Kit and `planning/door_handoff.md` Section 5 |
+| Official prediction output | Not yet available -- `door_predictions.csv` cannot be produced until segmentation is implemented |
 
 **These are cross-validation estimates on the 272 labelled training files only.** The hidden Test-file labels are not available to the team, so no accuracy claim is made about the actual 68 Test-file predictions -- only that the output file matches the required schema exactly.
 
@@ -68,8 +81,9 @@ nebula-x-bogie-early-warning/
 ├── requirements.txt
 ├── .gitignore
 ├── app/
-│   ├── streamlit_app.py       # shared navigation/branding; delegates to rail_view for Rail
-│   └── rail_view.py           # all Rail Corrugation UI, validation and explainability
+│   ├── streamlit_app.py       # shared navigation/branding; delegates to rail_view / door_view
+│   ├── rail_view.py           # all Rail Corrugation UI, validation and explainability
+│   └── door_view.py           # Door UI: upload validation, signal preview, pipeline status
 ├── data/
 │   └── input/
 │       └── README.md
@@ -80,9 +94,11 @@ nebula-x-bogie-early-warning/
 │   └── data/
 │       └── dashboard_data.json
 ├── models/
-│   └── rail_corrugation_model.joblib   # frozen, tracked (~10 KB) -- see .gitignore
+│   ├── rail_corrugation_model.joblib   # frozen, tracked (~10 KB) -- see .gitignore
+│   └── door_model.joblib               # classifier checkpoint only (segmentation not done yet); gitignored
 ├── planning/
 │   ├── data_review_template.md
+│   ├── door_handoff.md
 │   ├── hackathon.playbook.md
 │   ├── model_experiment_log.md
 │   ├── rail_corrugation_data_audit.md
@@ -101,13 +117,17 @@ nebula-x-bogie-early-warning/
 │   ├── common/
 │   │   ├── __init__.py
 │   │   └── validation.py
-│   ├── door/                   # scaffold only -- see Current implementation status
+│   ├── door/                   # working scaffold -- see Door status; segmentation still pending
 │   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── inspect_data.py
 │   │   ├── preprocess.py
-│   │   ├── segment.py
+│   │   ├── segment.py          # detect_cycles() -- the one piece still to implement
 │   │   ├── features.py
 │   │   ├── model.py
-│   │   └── predict.py
+│   │   ├── train.py
+│   │   ├── predict.py
+│   │   └── validate_predictions.py
 │   └── rail_corrugation/       # functional: inspection, features, training, prediction
 │       ├── __init__.py
 │       ├── inspect_data.py
@@ -120,9 +140,11 @@ nebula-x-bogie-early-warning/
 │       └── validate_predictions.py
 ├── tests/
 │   ├── test_rail_predict.py
-│   └── test_rail_app.py
+│   ├── test_rail_app.py
+│   └── test_door_scaffold.py
 ├── output/
-│   └── rail_corrugation/        # baseline metrics/plots, EDA plots (not raw data)
+│   ├── rail_corrugation/        # baseline metrics/plots, EDA plots (not raw data)
+│   └── door/                    # classifier comparison outputs (not raw data)
 └── writeup/
     └── solution_writeup.md
 ```
@@ -182,6 +204,17 @@ python src\rail_corrugation\validate_predictions.py
 ```
 
 See `planning/model_experiment_log.md` for what each step produces and why.
+
+## Running the Door pipeline directly (without the app)
+
+```bat
+python src\door\inspect_data.py
+python src\door\train.py --finalize
+python src\door\predict.py "<path to organiser Test.csv>"
+python src\door\validate_predictions.py --predictions predictions\door_predictions.csv
+```
+
+`train.py` already works today (it trains against the *official* labelled segments). `predict.py` will raise a clear `NotImplementedError` until `src/door/segment.py::detect_cycles` is implemented -- see `planning/door_handoff.md` for exactly what's left and in what order to build it.
 
 ## Running the dashboard locally
 

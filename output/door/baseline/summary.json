@@ -1,0 +1,13 @@
+{
+  "n_segments": 110,
+  "n_features": 114,
+  "class_distribution": {
+    "Normal": 80,
+    "Abnormal resistance": 30
+  },
+  "primary_metric": "macro_f1 (classification-only proxy; official metric is IoU-weighted F1)",
+  "proxy_result_statement": "Classification-only cross-validation using official ground-truth cycle boundaries achieved 1.000 macro F1. This is a proxy result and not the official end-to-end IoU-weighted F1. Automatic cycle segmentation remains unfinished.",
+  "best_model": "LogisticRegression",
+  "test_files_used": false,
+  "final_door_predictions_generated": false
+}

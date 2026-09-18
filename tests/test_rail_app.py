@@ -92,7 +92,11 @@ def check_invalid_uploads_are_rejected(train_dir: Path) -> None:
 def check_door_not_broken() -> None:
     import src.door as door_pkg  # noqa: F401 -- import success is the check
 
-    _check(hasattr(door_pkg, "predict_door_segments"), "src.door package still imports and exposes predict_door_segments")
+    # predict_door_file is Door's current real API (src/door/predict.py).
+    # predict_door_segments was an earlier placeholder name from before Door
+    # had a working scaffold -- see tests/test_door_scaffold.py for Door's
+    # own, up-to-date checks.
+    _check(hasattr(door_pkg, "predict_door_file"), "src.door package still imports and exposes predict_door_file")
 
     import app.streamlit_app as streamlit_app
 

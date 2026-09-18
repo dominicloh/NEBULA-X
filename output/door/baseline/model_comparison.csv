@@ -1,0 +1,4 @@
+model,mean_macro_f1,std_macro_f1,mean_balanced_accuracy,oof_macro_f1,oof_balanced_accuracy,mean_fit_time_seconds,precision_normal,recall_normal,f1_normal,precision_abnormal_resistance,recall_abnormal_resistance,f1_abnormal_resistance
+LogisticRegression,1.0,0.0,1.0,1.0,1.0,0.007589778900146484,1.0,1.0,1.0,1.0,1.0,1.0
+RandomForest,1.0,0.0,1.0,1.0,1.0,0.40262215614318847,1.0,1.0,1.0,1.0,1.0,1.0
+DummyMostFrequent,0.42105263157894735,0.0,0.5,0.42105263157894735,0.5,0.0012808513641357421,0.7272727272727273,1.0,0.8421052631578947,0.0,0.0,0.0
