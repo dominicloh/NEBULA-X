@@ -118,7 +118,9 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
   border-top: 3px solid var(--nebula-muted);
   border-radius: 8px;
   padding: 0.65rem 0.85rem;
-  min-height: 78px;
+  height: 100px;
+  min-height: 100px;
+  box-sizing: border-box;
 }
 .nebula-kpi__label {
   font-size: 0.72rem;
