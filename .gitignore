@@ -1,6 +1,17 @@
 # Raw datasets
-data/input/*
+data/input/**
 !data/input/README.md
+
+# Organisers' materials repo (sibling folder, never copied in, but ignore
+# defensively in case it's ever nested inside this repo by mistake)
+organiser-materials/
+
+# Trained model artifacts
+*.joblib
+*.pkl
+
+# Rail Corrugation exploratory plots (generated locally, not part of the submission)
+output/rail_corrugation/eda/
 
 # Python cache
 __pycache__/

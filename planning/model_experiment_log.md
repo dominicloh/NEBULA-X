@@ -22,7 +22,10 @@ Rail Corrugation is a file-level multi-class classification problem. Final scori
 
 | ID | Date/time | Model | Features | Key parameters | Validation method | Result | Decision |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [RAIL EXP ID] | [DATE/TIME] | [MODEL] | [FEATURES] | [PARAMETERS] | [METHOD] | [RESULT] | [KEEP/MODIFY/REJECT] |
+| RAIL-000 | 2026-09-18 | DummyClassifier(strategy="most_frequent") | 74 file-level features (see below) | none (predicts "Normal" every time) | RepeatedStratifiedKFold(5x10) + fixed StratifiedKFold(5) OOF | Macro F1 0.308 ± 0.002; Side I/II recall = 0 | REJECT (floor only) |
+| RAIL-001 | 2026-09-18 | Class-weighted LogisticRegression + StandardScaler | 74 file-level features | `class_weight="balanced"`, `max_iter=5000`, `random_state=42` | RepeatedStratifiedKFold(5x10) + fixed StratifiedKFold(5) OOF | Macro F1 0.779 ± 0.091 (repeated); 0.807 OOF; detects both Side I (recall 0.71) and Side II (recall 0.83) | **KEEP — current best baseline** |
+| RAIL-002 | 2026-09-18 | Class-weighted RandomForestClassifier | 74 file-level features | 300 trees, `class_weight="balanced"`, `random_state=42` | same as above | Macro F1 0.605 ± 0.082 (repeated); 0.588 OOF; Side I recall = **0** (misses the fault entirely) | REJECT for now (fails minority-class check) |
+| RAIL-003 | 2026-09-18 | Class-weighted ExtraTreesClassifier | 74 file-level features | 300 trees, `class_weight="balanced"`, `random_state=42` | same as above | Macro F1 0.595 ± 0.071 (repeated); 0.588 OOF; Side I recall = **0** (misses the fault entirely) | REJECT for now (fails minority-class check) |
 
 ## Door planned experiments
 
@@ -62,21 +65,77 @@ Evaluate segment timing and class labels together using IoU-weighted F1.
 
 ## Rail planned experiments
 
-### Experiment 0 — File-level baseline
+### Experiment 0 — File-level baseline (DONE — see RAIL-000)
 
-A simple file-level feature baseline for Normal vs Side I/II classification.
+`DummyClassifier(strategy="most_frequent")` run through the same CV pipeline as every
+other candidate, to confirm any real model is actually beating the "always predict
+Normal" floor. Macro F1 0.308 (matches the Info Kit's worked example of ~0.33 for an
+always-Normal model).
 
-### Experiment 1 — Vibration and shock feature model
+### Experiment 1 — Vibration and shock feature model (DONE — see `src/rail_corrugation/features.py`)
 
-Use the agreed feature set from the Rail Info Kit.
+Implemented in `extract_rail_features()`. Each of the 272 Train CSVs (10,000 rows x
+129 columns) is reduced to **74 features**:
+- Per-channel time/frequency stats (mean, std, RMS, abs peak, peak-to-peak, kurtosis,
+  crest factor, spectral energy, dominant frequency, spectral centroid, 3 broad
+  frequency-band energy ratios) computed for all 128 vibration/shock channels, then
+  **aggregated into 4 groups** (vibration x Side I, vibration x Side II, shock x Side I,
+  shock x Side II) rather than kept as 128 x 13 raw columns — keeps the feature count
+  small relative to the 272-file sample size.
+- Per-side car-level summaries (max/std of per-car RMS across the 8 cars), "where
+  useful" per the brief, without exploding to one column per car.
+- Direct **Side I vs. Side II comparison features**: difference, safe-epsilon ratio,
+  max side energy, vibration RMS difference, shock RMS difference, spectral energy
+  difference — these exist because the label itself is defined by comparing the two
+  sides, so the model should see that comparison directly rather than having to
+  re-derive it from 64 separate channels.
+- `Rotating speed` summaries: mean, std, toggle count, and an estimated km/h derived
+  from the confirmed 90-tooth/0.85 m wheel-diameter sensor description in the Info Kit.
+- **No filename, file index, or processing-order-derived value is ever included** —
+  verified in code (features are computed purely from signal columns) and by removing
+  the filename before the feature matrix reaches any model.
 
-### Experiment 2 — Class-weighted or balanced classifier
+Column-name parsing (`parse_signal_column`, `validate_rail_columns`) is regex-validated
+against the exact confirmed header text and raises `ValueError` on any unrecognised
+column rather than silently skipping or guessing a mapping.
 
-Use when class imbalance is present.
+### Experiment 2 — Class-weighted or balanced classifier (DONE — see RAIL-001/002/003)
 
-### Experiment 3 — Macro F1 evaluation
+All three real candidates (Logistic Regression, Random Forest, Extra Trees) use
+`class_weight="balanced"` — no resampling (e.g. SMOTE) was used for this baseline, to
+avoid leakage risk and an unnecessary new dependency (see `model.py` docstring).
+Logistic Regression is the only candidate that actually detects both minority classes;
+both tree ensembles collapse Side I recall to 0 despite class weighting — worth deeper
+investigation before relying on tree models here.
 
-Report the official competition metric for the Rail task.
+### Experiment 3 — Macro F1 evaluation (DONE — see Results below)
+
+Evaluated with `RepeatedStratifiedKFold(n_splits=5, n_repeats=10, random_state=42)`
+(50 total fold fits, to measure macro F1's spread given only 14 Side I files) for the
+headline mean/std, and a single fixed `StratifiedKFold(n_splits=5, shuffle=True,
+random_state=42)` via `cross_val_predict` for one reproducible set of out-of-fold (OOF)
+predictions per model — used for the per-class precision/recall/F1, balanced accuracy,
+and confusion matrix. Full outputs saved under `output/rail_corrugation/baseline/`.
+
+#### Results (2026-09-18 run, `python src/rail_corrugation/train.py`)
+
+| Model | Mean Macro F1 (repeated CV) | Std | OOF Macro F1 | Balanced accuracy (OOF) | Side I recall | Side II recall | Detects both minority classes? |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| DummyMostFrequent | 0.308 | 0.002 | 0.308 | 0.333 | 0.00 | 0.00 | No |
+| **LogisticRegression** | **0.779** | 0.091 | **0.807** | 0.833 | 0.71 | 0.83 | **Yes** |
+| RandomForest | 0.605 | 0.082 | 0.588 | 0.569 | 0.00 | 0.71 | No |
+| ExtraTrees | 0.595 | 0.071 | 0.588 | 0.588 | 0.00 | 0.71 | No |
+
+Class-imbalance handling: `class_weight="balanced"` only (no SMOTE/resampling this
+stage). Limitations: only 14 Side I examples in the entire training set means the OOF
+confusion matrix's Side I numbers (10 correct / 4 missed out of 14) come from a very
+small sample — a single reshuffled split could move Side I recall by one or two files.
+The repeated-CV std of ~0.09 on macro F1 for Logistic Regression reflects that
+uncertainty and should be quoted alongside the mean, not the mean alone. Random Forest
+and Extra Trees achieving *higher* macro F1 than Logistic Regression on some individual
+folds but *lower* on average, while missing Side I recall entirely in the OOF run, is
+exactly the "don't trust accuracy/majority-driven metrics alone" trap the brief warns
+about — both were rejected for that reason despite non-trivial macro F1 numbers.
 
 ## Final-model decision
 
@@ -85,19 +144,22 @@ Report the official competition metric for the Rail task.
 | Door | Simple segmentation baseline | [YES/NO] | Not preselected until Info Kit review |
 | Door | Rule-based candidate segmentation | [YES/NO] | [TO FILL] |
 | Door | Segment-feature binary classifier | [YES/NO] | [TO FILL] |
-| Rail | File-level feature baseline | [YES/NO] | [TO FILL] |
-| Rail | Multi-class classifier | [YES/NO] | [TO FILL] |
+| Rail | File-level feature baseline | YES | 74-feature extractor in `src/rail_corrugation/features.py`; see Experiment 1 |
+| Rail | Multi-class classifier (Logistic Regression, class-weighted) | YES (baseline only, not final) | Best of 4 candidates on macro F1 and the only one detecting both fault classes; see RAIL-001. Not yet used to generate test predictions — that is a later stage. |
+| Rail | Multi-class classifier (Random Forest / Extra Trees, class-weighted) | NO (for now) | Both miss Side I entirely (recall 0) in OOF evaluation despite class weighting; see RAIL-002/003. Worth revisiting with different features/tuning before ruling out permanently. |
 
 ## Reproducibility
 
-- Random seed: [TO FILL AFTER MODEL EVALUATION]
-- Python version: [TO FILL AFTER MODEL EVALUATION]
-- Library versions: [TO FILL AFTER MODEL EVALUATION]
-- Final feature list: [TO FILL AFTER MODEL EVALUATION]
-- Final parameters: [TO FILL AFTER MODEL EVALUATION]
-- Training-data description: [TO FILL AFTER DATA INSPECTION]
-- Final model location: [TO FILL AFTER MODEL EVALUATION]
-- Exact run command: [TO FILL AFTER MODEL EVALUATION]
+*(Rail Corrugation Stage 2 baseline — not yet a locked final model; this documents the current validation baseline.)*
+
+- Random seed: `42` (`RANDOM_STATE` in `src/rail_corrugation/model.py`, used for every model and both CV schemes)
+- Python version: 3.13.9
+- Library versions: pandas 2.3.3, numpy 2.2.6, scikit-learn 1.8.0, matplotlib 3.10.8, seaborn 0.13.2 (all already present in the project environment; no new dependencies added)
+- Final feature list: 74 features, listed in full in `output/rail_corrugation/baseline/feature_names.txt` (generated by `src/rail_corrugation/features.py::extract_rail_features`)
+- Final parameters (current best baseline, Logistic Regression): `class_weight="balanced"`, `max_iter=5000`, `random_state=42`, features scaled with `StandardScaler` fit inside each CV fold only
+- Training-data description: 272 Rail Corrugation Train files (234 Normal / 24 Side II / 14 Side I), 10,000 rows x 129 columns each, 10,000 Hz sampling, 1 second/file — see `planning/rail_corrugation_data_audit.md` for the full Stage 1 audit
+- Final model location: not yet saved to disk (no `.joblib`/`.pkl` produced this stage — this stage only cross-validates candidates; a persisted model belongs to a later "finalise baseline" stage)
+- Exact run command: `python src/rail_corrugation/train.py` (outputs under `output/rail_corrugation/baseline/`; add `--n-repeats N` to change the repeated-CV cost/precision trade-off)
 
 ---
 
