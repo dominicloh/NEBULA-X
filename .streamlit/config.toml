@@ -1,0 +1,60 @@
+# NEBULA X Streamlit theme.
+#
+# This sets Streamlit's own native theme engine (supported keys checked
+# against the installed Streamlit version, 1.64) so widgets, metrics,
+# dataframes and status colours match the dashboard palette without any
+# CSS overrides needed for them. app/styles.css only adds the things the
+# native theme can't do (KPI cards, status pills, banners) -- it never
+# fights this theme, and deliberately keeps the page flat (no gradient):
+# colour here is secondary to the dashboard's grid layout.
+[theme]
+base = "light"
+
+# Core surface colours.
+primaryColor = "#9254DE"              # violet -- Rail/analytics accent, widget focus colour
+backgroundColor = "#F5F6FA"           # main canvas -- very light grey, almost white
+secondaryBackgroundColor = "#FFFFFF"  # cards / sidebar / widget backgrounds
+textColor = "#171923"                 # near-black/navy primary text
+borderColor = "#E6E8EF"
+dataframeBorderColor = "#E6E8EF"
+showWidgetBorder = true
+
+# Modest, professional shapes (cards, buttons, inputs) -- a dense
+# engineering dashboard, not a soft consumer app.
+baseRadius = "medium"
+buttonRadius = "medium"
+
+# Status/semantic colours used by st.success/warning/error, coloured
+# markdown (":green[...]"), and chart categorical colours. A clear green
+# (not lime/yellow-green) so "Normal" never reads as a caution colour next
+# to the amber warning tone.
+greenColor = "#2FB344"        # healthy/normal accent -- green
+greenBackgroundColor = "#EAF9EC"
+greenTextColor = "#1E7A31"
+
+violetColor = "#9254DE"       # Rail/analytics accent -- purple
+violetBackgroundColor = "#F2E9FB"
+violetTextColor = "#6B2DB5"
+
+blueColor = "#168FE5"         # informational -- cyan/blue
+blueBackgroundColor = "#E7F3FD"
+blueTextColor = "#0B5FA1"
+
+orangeColor = "#F59E0B"       # warning -- amber
+orangeBackgroundColor = "#FEF3E2"
+orangeTextColor = "#92610A"
+
+redColor = "#EF4444"          # critical -- used sparingly
+redBackgroundColor = "#FDEBEB"
+redTextColor = "#B42318"
+
+# Readable, ordinary sans-serif -- no custom font loading (avoids adding a
+# third-party font dependency/network fetch).
+font = "sans-serif"
+headingFont = "sans-serif"
+codeFont = "monospace"
+
+# Chart palette (Plotly figures set their own colours explicitly in
+# app/ui.py's CLASS_COLORS/TONE_COLORS, but this keeps any native Streamlit
+# chart consistent with the same green/purple/blue/amber language).
+chartCategoricalColors = ["#2FB344", "#9254DE", "#168FE5", "#F59E0B", "#707583"]

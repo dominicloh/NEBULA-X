@@ -1,0 +1,235 @@
+/* ==========================================================================
+   NEBULA X -- shared dashboard styling.
+
+   Restrained light dashboard: flat canvas, consistent white cards, colour
+   used only for status/class semantics -- not for page decoration. No
+   full-page gradient behind text (colour is secondary to layout here).
+
+   Selectors use Streamlit's documented data-testid attributes and
+   long-stable class names (.stApp, .block-container) rather than the
+   hashed "st-emotion-cache-*" classes Streamlit generates internally --
+   those change between releases and would make this brittle.
+   ========================================================================== */
+
+:root {
+  --nebula-canvas: #F5F6FA;
+  --nebula-card: #FFFFFF;
+  --nebula-text: #171923;
+  --nebula-muted: #707583;
+  --nebula-border: #E6E8EF;
+  --nebula-green: #2FB344;
+  --nebula-purple: #9254DE;
+  --nebula-info: #168FE5;
+  --nebula-amber: #F59E0B;
+  --nebula-red: #EF4444;
+}
+
+/* ---- Flat canvas background (no gradient) ------------------------------ */
+.stApp {
+  background: var(--nebula-canvas);
+}
+[data-testid="stAppViewContainer"] > .main .block-container {
+  max-width: 1400px;
+  padding: 1.25rem clamp(1rem, 3vw, 2.5rem) 2.5rem;
+}
+
+/* ---- Headings & body text ---------------------------------------------- */
+[data-testid="stAppViewContainer"] h1,
+[data-testid="stAppViewContainer"] h2,
+[data-testid="stAppViewContainer"] h3,
+[data-testid="stAppViewContainer"] h4 {
+  color: var(--nebula-text);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.nebula-muted {
+  color: var(--nebula-muted) !important;
+  font-size: 0.9rem;
+}
+
+/* ---- Header block (app/ui.py::render_header) --------------------------- */
+.nebula-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+.nebula-header__name {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--nebula-text);
+  letter-spacing: -0.02em;
+}
+.nebula-header__subtitle {
+  font-size: 0.98rem;
+  color: var(--nebula-muted);
+  font-weight: 500;
+}
+.nebula-header__status {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  height: 100%;
+}
+.nebula-tagline {
+  color: var(--nebula-muted);
+  margin: 0.1rem 0 0.5rem;
+  font-size: 0.9rem;
+}
+.nebula-task-line {
+  color: var(--nebula-muted);
+  font-size: 0.95rem;
+  margin: 0 0 0.6rem;
+}
+.nebula-section-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--nebula-text);
+}
+
+/* ---- Cards: bordered containers get a white surface + soft shadow ----- */
+/* st.container(border=True) already renders a thin border; this adds the
+   white fill, rounded corners and a very subtle shadow -- kept minimal so
+   the dashboard reads as flat/dense rather than decorative. */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+  background: var(--nebula-card);
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(23, 25, 35, 0.04);
+}
+
+/* ---- Upload area -------------------------------------------------------- */
+[data-testid="stFileUploaderDropzone"] {
+  background: #FAFBFF;
+  border-radius: 10px;
+}
+
+/* ---- Buttons ------------------------------------------------------------ */
+.stButton > button {
+  font-weight: 600;
+}
+.stDownloadButton > button {
+  font-weight: 600;
+}
+
+/* ---- KPI cards (app/ui.py::render_kpi_row) ------------------------------ */
+.nebula-kpi {
+  background: var(--nebula-card);
+  border: 1px solid var(--nebula-border);
+  border-top: 3px solid var(--nebula-muted);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  min-height: 78px;
+}
+.nebula-kpi__label {
+  font-size: 0.72rem;
+  color: var(--nebula-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.15rem;
+}
+.nebula-kpi__value {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--nebula-text);
+  line-height: 1.15;
+}
+.nebula-kpi__sub {
+  font-size: 0.75rem;
+  color: var(--nebula-muted);
+  margin-top: 0.1rem;
+}
+
+/* ---- Status pill (app/ui.py::render_status_pill) ------------------------ */
+.nebula-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.nebula-pill::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.nebula-pill--neutral  { background: #EEF0F6; color: var(--nebula-muted); border-color: var(--nebula-border); }
+.nebula-pill--good     { background: #EAF9EC; color: #1E7A31; border-color: #C7EDCC; }
+.nebula-pill--info     { background: #E7F3FD; color: #0B5FA1; border-color: #BFE1FA; }
+.nebula-pill--warning  { background: #FEF3E2; color: #92610A; border-color: #FBDBA7; }
+.nebula-pill--critical { background: #FDEBEB; color: #B42318; border-color: #F8C9C9; }
+.nebula-pill--rail     { background: #F2E9FB; color: #6B2DB5; border-color: #DFC4F5; }
+
+.nebula-legend {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin: 0.2rem 0 0.5rem;
+}
+
+/* ---- Info banner (app/ui.py::render_info_banner) ------------------------ */
+.nebula-banner {
+  border-radius: 8px;
+  border: 1px solid var(--nebula-border);
+  padding: 0.6rem 0.9rem;
+  font-size: 0.88rem;
+  margin: 0.35rem 0 0.75rem;
+}
+.nebula-banner--neutral  { background: #F3F4F8; border-color: var(--nebula-border); color: var(--nebula-text); }
+.nebula-banner--info     { background: #EAF5FE; border-color: #BFE1FA; color: #0B4A78; }
+.nebula-banner--warning  { background: #FEF6E9; border-color: #FBDBA7; color: #7A4E06; }
+.nebula-banner--good     { background: #EAF9EC; border-color: #C7EDCC; color: #1E7A31; }
+.nebula-banner--critical { background: #FCEDEC; border-color: #F8C9C9; color: #8C1D14; }
+
+/* ---- Empty state (app/ui.py::render_empty_state) ------------------------ */
+.nebula-empty {
+  text-align: center;
+  color: var(--nebula-muted);
+  padding: 1.75rem 1rem;
+  border: 1.5px dashed var(--nebula-border);
+  border-radius: 10px;
+  background: #FBFBFE;
+  font-size: 0.92rem;
+}
+
+/* ---- Footer (app/ui.py::render_footer) ---------------------------------- */
+.nebula-footer {
+  margin-top: 1.25rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--nebula-border);
+  color: var(--nebula-muted);
+  font-size: 0.82rem;
+}
+
+/* ---- Dataframes / tables ------------------------------------------------ */
+[data-testid="stDataFrame"] {
+  border: 1px solid var(--nebula-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* ---- Plotly charts: keep the card's own padding, no extra chrome ------- */
+[data-testid="stPlotlyChart"] {
+  width: 100%;
+}
+
+/* ---- Responsive behaviour ------------------------------------------------
+   Streamlit's own st.columns already stacks vertically on narrow screens
+   (no custom flex/grid override needed) -- this just tightens padding so
+   nothing forces horizontal scroll on an ordinary laptop window. */
+@media (max-width: 640px) {
+  [data-testid="stAppViewContainer"] > .main .block-container {
+    padding: 1rem 0.85rem 2rem;
+  }
+  .nebula-header__status {
+    justify-content: flex-start;
+    margin-top: 0.35rem;
+  }
+}

@@ -5,12 +5,6 @@ pipelines separate at the module level") so Rail-specific UI/validation code
 never has to touch `app/streamlit_app.py` or `src/door/*`, reducing the
 chance of merge conflicts with the Door owner's work.
 
-`app/streamlit_app.py` should only need:
-
-    from app.rail_view import render_rail_page
-    ...
-    render_rail_page()
-
 This module NEVER retrains the model -- it only loads the frozen artifact at
 `models/rail_corrugation_model.joblib` (via `st.cache_resource`, so it's
 loaded once per server process, not once per upload) and reuses the exact
@@ -20,6 +14,14 @@ same feature extractor and prediction function that produced the official
   - `src/rail_corrugation/predict.py` for loading the model + predicting
   - `src/common/validation.py` for the official output schema check
 No second feature-extraction or prediction implementation lives here.
+
+DASHBOARD LAYOUT NOTE: the functions below are grouped by the six dashboard
+rows described in the design brief (KPI cards; batch overview + review
+status; review queue + selected file; model explanation + signal profile;
+signal evidence tabs; downloads). Every number/chart they draw comes from
+`results_df` (built from real `predict_rail_files` output) or from feature
+values `extract_rail_features` already computed -- nothing here invents a
+metric.
 """
 
 from __future__ import annotations
@@ -29,10 +31,6 @@ import sys
 import zipfile
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")  # headless-safe backend for a server-side app
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -49,6 +47,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from app import ui  # noqa: E402
 from src.common.validation import VALID_RAIL_LABELS, validate_rail_predictions  # noqa: E402
 from src.rail_corrugation.features import (  # noqa: E402
     SAMPLING_FREQUENCY_HZ,
@@ -64,7 +63,7 @@ from src.rail_corrugation.predict import (  # noqa: E402
 )
 
 # ---------------------------------------------------------------------------
-# Constants
+# Constants (unchanged from the previous UI pass -- logic, not presentation)
 # ---------------------------------------------------------------------------
 
 # Data-quality gate for UPLOADED files, separate from feature extraction
@@ -81,8 +80,7 @@ HIGH_CONFIDENCE_THRESHOLD = 0.80
 MODERATE_CONFIDENCE_THRESHOLD = 0.60
 
 CONFIDENCE_THRESHOLDS_NOTE = (
-    "Confidence categories (High / Moderate / Needs Review) are **prototype interface "
-    "thresholds** chosen for this tool only -- they are **not railway safety limits**."
+    "High/Moderate/Needs review are prototype interface categories for this tool only -- not railway safety limits."
 )
 
 PRODUCT_MESSAGE = "From raw axle-box signals to a prioritised, explainable engineering review queue."
@@ -98,7 +96,7 @@ FEATURE_CONTRIBUTION_DISCLAIMER = (
 )
 
 # ---------------------------------------------------------------------------
-# Readable feature descriptions (Part D)
+# Readable feature descriptions -- unchanged
 # ---------------------------------------------------------------------------
 
 _SPECIAL_FEATURE_DESCRIPTIONS = {
@@ -164,7 +162,7 @@ def describe_feature_name(name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Model loading (Part A.4/A.5) -- cached, never retrained
+# Model loading -- cached, never retrained -- unchanged
 # ---------------------------------------------------------------------------
 
 
@@ -182,7 +180,7 @@ def load_cached_rail_artifact() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Confidence categories (Part C)
+# Confidence categories -- unchanged
 # ---------------------------------------------------------------------------
 
 
@@ -194,8 +192,16 @@ def confidence_category(top_confidence: float) -> str:
     return "Needs Review"
 
 
+_STATUS_TONE = {
+    "High confidence": "good",
+    "Moderate confidence": "warning",
+    "Needs Review": "info",
+}
+
+
 # ---------------------------------------------------------------------------
-# Upload expansion: plain CSVs and/or one ZIP of CSVs, in memory only
+# Upload expansion: plain CSVs and/or one ZIP of CSVs, in memory only --
+# unchanged
 # ---------------------------------------------------------------------------
 
 
@@ -266,8 +272,6 @@ def check_filenames(sources: list[tuple[str, bytes]]) -> tuple[list[tuple[str, b
             rejected.setdefault("(blank filename)", []).append("Uploaded file has an empty or blank filename.")
             continue
         if counts[file_id] > 1:
-            # Only record the explanation once per duplicated name, even
-            # though it applies to every occurrence.
             if file_id not in rejected:
                 rejected[file_id] = [
                     f"Filename '{file_id}' was uploaded more than once ({counts[file_id]} times); "
@@ -279,7 +283,7 @@ def check_filenames(sources: list[tuple[str, bytes]]) -> tuple[list[tuple[str, b
 
 
 # ---------------------------------------------------------------------------
-# Per-file validation (Part B)
+# Per-file validation -- unchanged
 # ---------------------------------------------------------------------------
 
 
@@ -336,7 +340,7 @@ def validate_uploaded_frame(frame: pd.DataFrame) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Explainability (Part D)
+# Explainability -- unchanged
 # ---------------------------------------------------------------------------
 
 
@@ -363,90 +367,161 @@ def compute_feature_contributions(pipeline, feature_row: pd.Series, predicted_la
 
 
 # ---------------------------------------------------------------------------
-# Signal evidence (Part E)
+# Row 5 -- Signal evidence (tabs: Waveform / Frequency spectrum / Side comparison)
 # ---------------------------------------------------------------------------
 
 
-def render_signal_evidence(frame: pd.DataFrame, file_id: str) -> None:
-    with st.expander("Inspect signal evidence (optional)"):
-        st.caption(
-            "Raw sensor evidence for this file. The chart below always uses the full "
-            "10,000-sample recording (no downsampling needed at this size) -- and this "
-            "view never changes what the model already predicted above."
-        )
+def _rail_signal(frame: pd.DataFrame, car: int, position: int, signal_type: str) -> tuple[np.ndarray, str, str] | None:
+    column_name = f"{signal_type} of bearing in position {position} of car {car}"
+    if column_name not in frame.columns:
+        return None
+    side = "Side I" if position in (1, 3, 5, 7) else "Side II"
+    return frame[column_name].to_numpy(dtype=float), column_name, side
 
-        col1, col2, col3 = st.columns(3)
-        car = col1.selectbox("Car number", list(range(1, 9)), key=f"rail_car_{file_id}")
-        position = col2.selectbox("Bearing position", list(range(1, 9)), key=f"rail_pos_{file_id}")
-        signal_type = col3.selectbox("Signal type", ["Vibration", "Shock"], key=f"rail_sigtype_{file_id}")
 
-        column_name = f"{signal_type} of bearing in position {position} of car {car}"
-        if column_name not in frame.columns:
-            st.error(f"Column not found in this file: {column_name}")
-            return
+def render_signal_evidence(frame: pd.DataFrame, feature_row: pd.Series, file_id: str) -> None:
+    """One evidence view at a time (tabs), per the dashboard layout rules --
+    reuses the exact same signal columns/FFT math as before, just charted
+    with Plotly (for hover) instead of static matplotlib images.
+    """
+    col1, col2, col3 = st.columns(3)
+    car = col1.selectbox("Car number", list(range(1, 9)), key=f"rail_car_{file_id}")
+    position = col2.selectbox("Bearing position", list(range(1, 9)), key=f"rail_pos_{file_id}")
+    signal_type = col3.selectbox("Signal type", ["Vibration", "Shock"], key=f"rail_sigtype_{file_id}")
 
-        signal = frame[column_name].to_numpy(dtype=float)
-        side = "Side I" if position in (1, 3, 5, 7) else "Side II"
-        st.caption(f"**{column_name}** ({side})")
+    resolved = _rail_signal(frame, car, position, signal_type)
+    if resolved is None:
+        st.error(f"Column not found in this file for car {car}, position {position}, {signal_type}.")
+        return
+    signal, column_name, side = resolved
+    st.caption(f"**{column_name}** ({side})")
 
+    tab_waveform, tab_spectrum, tab_side = st.tabs(["Waveform", "Frequency spectrum", "Side comparison"])
+
+    with tab_waveform:
         time_seconds = np.arange(len(signal)) / SAMPLING_FREQUENCY_HZ
-        fig, ax = plt.subplots(figsize=(8, 2.6))
-        ax.plot(time_seconds, signal, linewidth=0.5, color="#2563eb")
-        ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Acceleration (m/s²)")
-        ax.set_title("Raw waveform (1 second)")
-        fig.tight_layout()
-        st.pyplot(fig)
-        plt.close(fig)
+        ui.render_line_chart(time_seconds, signal, color="#168FE5", xlabel="Time (s)", ylabel="Acceleration (m/s²)")
 
+    with tab_spectrum:
         freqs = np.fft.rfftfreq(len(signal), d=1.0 / SAMPLING_FREQUENCY_HZ)
         spectrum = np.abs(np.fft.rfft(signal - signal.mean()))
-        fig2, ax2 = plt.subplots(figsize=(8, 2.6))
-        ax2.plot(freqs, spectrum, linewidth=0.6, color="#7c3aed")
-        ax2.set_xlabel("Frequency (Hz)")
-        ax2.set_ylabel("Magnitude")
-        ax2.set_title("Frequency spectrum")
-        fig2.tight_layout()
-        st.pyplot(fig2)
-        plt.close(fig2)
+        ui.render_line_chart(freqs, spectrum, color="#9254DE", xlabel="Frequency (Hz)", ylabel="Magnitude")
 
-        if SPEED_COLUMN_NAME in frame.columns:
-            speed_info = _rotating_speed_features(frame[SPEED_COLUMN_NAME].to_numpy(dtype=float), SAMPLING_FREQUENCY_HZ)
-            st.metric("Estimated train speed", f"{speed_info['rotating_speed_estimated_kmh']:.1f} km/h")
-            st.caption(
-                "\"Estimated train speed\" is calculated from the raw speed-sensor pulses "
-                "(90-tooth wheel sensor, 0.85 m wheel diameter, per the Info Kit) -- it is not "
-                "a direct measurement. Shown for context only: it is not part of the official "
-                "prediction CSV and does not change the frozen model's features."
-            )
+    with tab_side:
+        # Reuses the already-computed feature values (no new computation) --
+        # a direct visual of the Side I vs Side II comparison the model
+        # itself was given as input features.
+        pairs = [
+            ("Vibration RMS", "vib_s1_rms_avg", "vib_s2_rms_avg"),
+            ("Shock RMS", "shock_s1_rms_avg", "shock_s2_rms_avg"),
+            ("Spectral energy", "vib_s1_spectral_energy_avg", "vib_s2_spectral_energy_avg"),
+        ]
+        labels, side_i_values, side_ii_values = [], [], []
+        for label, key_i, key_ii in pairs:
+            if key_i in feature_row.index and key_ii in feature_row.index:
+                labels.append(label)
+                side_i_values.append(float(feature_row[key_i]))
+                side_ii_values.append(float(feature_row[key_ii]))
+        if labels:
+            import plotly.graph_objects as go
+
+            fig = go.Figure()
+            fig.add_bar(name="Side I", x=labels, y=side_i_values, marker_color=ui.CLASS_COLORS["Side I"])
+            fig.add_bar(name="Side II", x=labels, y=side_ii_values, marker_color=ui.CLASS_COLORS["Side II"])
+            fig.update_layout(barmode="group", height=260, margin=dict(l=8, r=8, t=8, b=8), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", legend=dict(orientation="h", y=1.05))
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.caption(f"side_energy_diff (Side I − Side II, RMS-based): {feature_row.get('side_energy_diff', float('nan')):+.4f}")
+
+    if SPEED_COLUMN_NAME in frame.columns:
+        speed_info = _rotating_speed_features(frame[SPEED_COLUMN_NAME].to_numpy(dtype=float), SAMPLING_FREQUENCY_HZ)
+        st.caption(
+            f"Estimated train speed: {speed_info['rotating_speed_estimated_kmh']:.1f} km/h "
+            "(from speed-sensor pulses -- not part of the official prediction CSV)."
+        )
 
 
 # ---------------------------------------------------------------------------
-# Review queue (Part C)
+# Row 1 -- KPI cards
 # ---------------------------------------------------------------------------
 
 
 def render_summary_cards(results_df: pd.DataFrame) -> None:
-    st.markdown("#### Prediction summary")
-    cols = st.columns(5)
-    cols[0].metric("Files analysed", len(results_df))
-    cols[1].metric("Normal", int((results_df["prediction"] == "Normal").sum()))
-    cols[2].metric("Side I", int((results_df["prediction"] == "Side I").sum()))
-    cols[3].metric("Side II", int((results_df["prediction"] == "Side II").sum()))
-    cols[4].metric("Needs Review", int((results_df["confidence_category"] == "Needs Review").sum()))
+    n = len(results_df)
+    n_normal = int((results_df["prediction"] == "Normal").sum())
+    n_side_i = int((results_df["prediction"] == "Side I").sum())
+    n_side_ii = int((results_df["prediction"] == "Side II").sum())
+    n_review = int((results_df["confidence_category"] == "Needs Review").sum())
+
+    def pct(count: int) -> str:
+        return f"{count / n:.0%} of batch" if n else ""
+
+    ui.render_kpi_row(
+        [
+            {"label": "Files analysed", "value": n, "tone": "neutral"},
+            {"label": "Normal", "value": n_normal, "sub": pct(n_normal), "tone": "good"},
+            {"label": "Side I", "value": n_side_i, "sub": pct(n_side_i), "tone": "rail"},
+            {"label": "Side II", "value": n_side_ii, "sub": pct(n_side_ii), "tone": "info"},
+            {"label": "Needs review", "value": n_review, "sub": pct(n_review), "tone": "warning"},
+        ]
+    )
 
 
-_STATUS_BADGE = {
-    "High confidence": ":green[High confidence]",
-    "Moderate confidence": ":orange[Moderate confidence]",
-    "Needs Review": ":red[Needs Review]",
-}
+# ---------------------------------------------------------------------------
+# Row 2 -- Primary analytics (batch overview + review status)
+# ---------------------------------------------------------------------------
+
+
+def render_primary_analytics(results_df: pd.DataFrame) -> None:
+    left, right = st.columns([2, 1])
+
+    with left:
+        with ui.card():
+            ui.render_section_heading(
+                "Batch classification overview",
+                help_text="Counts (or, for a single file, class probabilities) come directly from the model's predictions.",
+            )
+            if len(results_df) == 1:
+                row = results_df.iloc[0]
+                ui.render_class_bar_chart(
+                    ["Normal", "Side I", "Side II"],
+                    [row["confidence_normal"], row["confidence_side_i"], row["confidence_side_ii"]],
+                )
+                st.caption("Only one file was analysed -- showing its class probabilities instead of a batch count.")
+            else:
+                counts = results_df["prediction"].value_counts()
+                labels = ["Normal", "Side I", "Side II"]
+                values = [int(counts.get(label, 0)) for label in labels]
+                ui.render_class_bar_chart(labels, values)
+
+    with right:
+        with ui.card():
+            ui.render_section_heading("Review status", help_text=CONFIDENCE_THRESHOLDS_NOTE)
+            if len(results_df) == 1:
+                row = results_df.iloc[0]
+                st.markdown(f"**Predicted class:** {row['prediction']}")
+                st.markdown(f"**Model confidence:** {row['top_confidence']:.1%}")
+                st.markdown(f"**Attention score:** {row['attention_score']:.1%}")
+                ui.render_probability_bars(
+                    [
+                        ("Normal", row["confidence_normal"]),
+                        ("Side I", row["confidence_side_i"]),
+                        ("Side II", row["confidence_side_ii"]),
+                    ]
+                )
+            else:
+                category_counts = results_df["confidence_category"].value_counts()
+                labels = ["High confidence", "Moderate confidence", "Needs Review"]
+                values = [int(category_counts.get(label, 0)) for label in labels]
+                colors = [ui.TONE_COLORS["good"], ui.TONE_COLORS["warning"], ui.TONE_COLORS["info"]]
+                ui.render_donut_chart(labels, values, colors=colors)
+
+
+# ---------------------------------------------------------------------------
+# Row 3 -- Engineer review (queue + selected file)
+# ---------------------------------------------------------------------------
 
 
 def render_review_queue(results_df: pd.DataFrame) -> pd.DataFrame:
-    st.markdown("#### Engineer Review Queue")
-    st.caption(CONFIDENCE_THRESHOLDS_NOTE)
-
     queue = results_df.sort_values("attention_score", ascending=False).reset_index(drop=True)
     queue.insert(0, "Priority", queue.index + 1)
 
@@ -463,93 +538,102 @@ def render_review_queue(results_df: pd.DataFrame) -> pd.DataFrame:
             "Priority": display_queue["Priority"],
             "Filename": display_queue["file_id"],
             "Prediction": display_queue["prediction"],
-            "Prediction confidence": display_queue["top_confidence"].map(lambda v: f"{v:.1%}"),
+            "Model confidence": display_queue["top_confidence"].map(lambda v: f"{v:.1%}"),
             "Attention score": display_queue["attention_score"].map(lambda v: f"{v:.1%}"),
-            "Review status": display_queue["confidence_category"].map(lambda v: _STATUS_BADGE.get(v, v)),
+            # Plain text only (e.g. "High confidence") -- a plain st.dataframe
+            # cell renders markdown/colour syntax like ":green[...]" literally
+            # as text, so status colour lives in the legend pill row instead.
+            "Review status": display_queue["confidence_category"],
         }
     )
-    st.dataframe(display_table, use_container_width=True, hide_index=True)
-    st.caption(f"Showing {len(display_queue)} of {len(queue)} file(s). Attention score = 1 - P(Normal).")
+    st.dataframe(display_table, use_container_width=True, hide_index=True, height=280)
+    st.caption(f"{len(display_queue)} of {len(queue)} file(s) shown. Attention score = 1 − P(Normal).")
     return queue
 
 
-# ---------------------------------------------------------------------------
-# Selected-file explanation (Part D)
-# ---------------------------------------------------------------------------
-
-
-def render_selected_file_explanation(
-    queue: pd.DataFrame,
-    frames_by_file_id: dict,
-    artifact: dict,
-) -> None:
-    st.markdown("#### Selected file")
+def render_selected_file_panel(queue: pd.DataFrame, frames_by_file_id: dict, artifact: dict) -> tuple[str, pd.Series]:
+    """Returns (selected_file_id, feature_row) so callers below (model
+    explanation, signal evidence) can reuse the same selection/features
+    without recomputing the selectbox or re-extracting features twice.
+    """
     selected_file_id = st.selectbox("Choose a file to inspect", queue["file_id"].tolist(), key="rail_selected_file")
     row = queue.loc[queue["file_id"] == selected_file_id].iloc[0]
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(f"**Filename:** {row['file_id']}")
-        st.markdown(f"**Prediction:** {row['prediction']}")
-        st.markdown(f"**Confidence:** {row['top_confidence']:.1%} ({row['confidence_category']})")
-        st.markdown("**Data validation result:** Valid (passed all upload checks)")
-    with col2:
-        st.markdown(f"**Normal probability:** {row['confidence_normal']:.1%}")
-        st.markdown(f"**Side I probability:** {row['confidence_side_i']:.1%}")
-        st.markdown(f"**Side II probability:** {row['confidence_side_ii']:.1%}")
-        st.markdown(f"**Attention score:** {row['attention_score']:.1%}")
+    st.markdown(f"**Filename:** {row['file_id']}")
+    st.markdown(f"**Prediction:** {row['prediction']}")
+    ui.render_status_pill(f"{row['top_confidence']:.1%} · {row['confidence_category']}", _STATUS_TONE.get(row["confidence_category"], "neutral"))
+    st.markdown(f"**Attention score:** {row['attention_score']:.1%}")
+    st.markdown("**Validation status:** Valid (passed all upload checks)")
+    ui.render_probability_bars(
+        [
+            ("Normal", row["confidence_normal"]),
+            ("Side I", row["confidence_side_i"]),
+            ("Side II", row["confidence_side_ii"]),
+        ]
+    )
 
-    st.markdown("##### Why the model predicted this")
     # Recomputed on demand for just this one selected file, using the exact
-    # same shared extractor prediction already used -- not a second
+    # same shared extractor already used for prediction -- not a second
     # implementation, just a second (cheap) call for the one file being
-    # inspected, so we don't need to carry every file's raw feature vector
-    # around in memory for the whole session.
+    # inspected, so we don't carry every file's raw feature vector in memory.
     feature_row = extract_rail_features(frames_by_file_id[selected_file_id]).reindex(artifact["feature_names"])
-    contributions = compute_feature_contributions(artifact["pipeline"], feature_row, row["prediction"])
-
-    if contributions is None:
-        st.info("Feature-contribution explanation is only available for the deployed linear (Logistic Regression) model.")
-    else:
-        top_contributions = contributions.head(6)
-        explanation_table = pd.DataFrame(
-            {
-                "Feature": [describe_feature_name(name) for name in top_contributions.index],
-                "Contribution": top_contributions.values,
-            }
-        )
-        st.dataframe(
-            explanation_table.style.format({"Contribution": "{:+.3f}"}),
-            use_container_width=True,
-            hide_index=True,
-        )
-        st.caption(
-            "Contribution = standardised feature value x coefficient for the predicted class "
-            f"({row['prediction']}). Positive values pushed the model toward this prediction."
-        )
-
-    st.warning(FEATURE_CONTRIBUTION_DISCLAIMER)
-
-    render_signal_evidence(frames_by_file_id[selected_file_id], selected_file_id)
+    return selected_file_id, feature_row
 
 
 # ---------------------------------------------------------------------------
-# Downloads (Part F)
+# Row 4 -- Model explanation (why this prediction + signal profile)
+# ---------------------------------------------------------------------------
+
+
+def render_model_explanation(row: pd.Series, feature_row: pd.Series, artifact: dict) -> None:
+    left, right = st.columns(2)
+
+    with left:
+        with ui.card():
+            ui.render_section_heading("Why this prediction", help_text=FEATURE_CONTRIBUTION_DISCLAIMER)
+            contributions = compute_feature_contributions(artifact["pipeline"], feature_row, row["prediction"])
+            if contributions is None:
+                st.info("Feature-contribution explanation is only available for the deployed linear (Logistic Regression) model.")
+            else:
+                top = contributions.head(6)
+                readable_labels = [describe_feature_name(name) for name in top.index]
+                ui.render_horizontal_bar(readable_labels, list(top.values), hover_text=list(top.index))
+                with st.expander("Exact feature values"):
+                    st.dataframe(
+                        pd.DataFrame({"Feature": top.index, "Readable name": readable_labels, "Contribution": top.values}).style.format({"Contribution": "{:+.3f}"}),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+            st.caption(FEATURE_CONTRIBUTION_DISCLAIMER)
+
+    with right:
+        with ui.card():
+            ui.render_section_heading("Signal profile", help_text="Summarises values already computed by the feature extractor for this file.")
+            speed_kmh = feature_row.get("rotating_speed_estimated_kmh")
+            vibration_energy = (feature_row.get("vib_s1_spectral_energy_avg", 0) + feature_row.get("vib_s2_spectral_energy_avg", 0)) / 2
+            shock_energy = (feature_row.get("shock_s1_spectral_energy_avg", 0) + feature_row.get("shock_s2_spectral_energy_avg", 0)) / 2
+            dominant_category = "Vibration" if vibration_energy >= shock_energy else "Shock"
+            side_diff = feature_row.get("side_energy_diff", 0.0)
+            dominant_side = "Side I" if side_diff > 0 else ("Side II" if side_diff < 0 else "Balanced")
+
+            ui.render_kpi_row(
+                [
+                    {"label": "Est. rotating speed", "value": f"{speed_kmh:.1f} km/h" if speed_kmh is not None else "n/a", "tone": "info"},
+                    {"label": "Dominant signal", "value": dominant_category, "tone": "rail"},
+                    {"label": "Higher-energy side", "value": dominant_side, "sub": f"Δ {side_diff:+.3f}", "tone": "neutral"},
+                ]
+            )
+            st.caption(f"Validation: {EXPECTED_COLUMN_COUNT}/{EXPECTED_COLUMN_COUNT} columns, {EXPECTED_ROW_COUNT:,}/{EXPECTED_ROW_COUNT:,} rows, no missing/infinite values.")
+
+
+# ---------------------------------------------------------------------------
+# Row 6 -- Downloads
 # ---------------------------------------------------------------------------
 
 
 def render_downloads(results_df: pd.DataFrame) -> None:
-    st.markdown("#### Downloads")
-
     official_df = results_df[["file_id", "prediction"]].copy()
     validate_rail_predictions(official_df)  # reuse the shared schema check before offering the file
-    st.download_button(
-        "Download official rail_predictions.csv",
-        data=official_df.to_csv(index=False).encode("utf-8"),
-        file_name="rail_predictions.csv",
-        mime="text/csv",
-        help="Exact competition schema: file_id,prediction only, one row per valid uploaded file.",
-    )
 
     review_df = results_df[
         [
@@ -563,18 +647,27 @@ def render_downloads(results_df: pd.DataFrame) -> None:
             "attention_score",
         ]
     ].copy()
-    st.download_button(
-        "Download engineering review report (rail_engineering_review.csv)",
-        data=review_df.to_csv(index=False).encode("utf-8"),
-        file_name="rail_engineering_review.csv",
-        mime="text/csv",
-        help="Extra detail for engineering review only.",
-    )
-    st.caption(
-        "`rail_engineering_review.csv` is a supplementary report for engineering review only -- "
-        "it is **not** the official competition submission file. Only `rail_predictions.csv` "
-        "(`file_id,prediction`) is scored."
-    )
+
+    with ui.card():
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button(
+                "Download official rail_predictions.csv",
+                data=official_df.to_csv(index=False).encode("utf-8"),
+                file_name="rail_predictions.csv",
+                mime="text/csv",
+                type="primary",
+                use_container_width=True,
+            )
+        with col2:
+            st.download_button(
+                "Download engineering review report",
+                data=review_df.to_csv(index=False).encode("utf-8"),
+                file_name="rail_engineering_review.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+        st.caption("Only `rail_predictions.csv` (`file_id,prediction`) is scored -- the review report is supplementary.")
 
 
 # ---------------------------------------------------------------------------
@@ -583,79 +676,78 @@ def render_downloads(results_df: pd.DataFrame) -> None:
 
 
 def render_rail_page() -> None:
-    st.subheader("Rail Corrugation")
-    st.caption(PRODUCT_MESSAGE)
-    st.markdown(
-        "Classifies each **one-second axle-box vibration/shock recording** as **Normal**, "
-        "**Side I**, or **Side II** corrugation. This tool supports **engineering review and "
-        "prioritisation** -- it does not, by itself, confirm a physical rail defect."
-    )
-
     try:
         artifact = load_cached_rail_artifact()
     except FileNotFoundError as exc:
-        st.error(f"Rail model not available: {exc}")
+        ui.render_info_banner(f"Rail model not available: {exc}", tone="critical")
         return
-    st.caption(
-        f"Model loaded: {artifact.get('model_name', '?')} · "
-        f"trained on {artifact.get('n_training_files', '?')} labelled files · "
-        "loaded from disk, never retrained in this app."
-    )
-    validation_summary = artifact.get("validation_summary") or {}
-    if validation_summary:
-        with st.expander("Validation estimate (from training-data cross-validation only)"):
-            st.write(
-                f"Mean macro F1 (repeated 5-fold CV): "
-                f"{validation_summary.get('mean_macro_f1_repeated_cv', 'n/a')}"
-            )
-            st.write(f"Out-of-fold macro F1 (fixed 5-fold): {validation_summary.get('oof_macro_f1_fixed_5fold', 'n/a')}")
-            st.caption(validation_summary.get("note", ""))
 
-    uploaded_files = st.file_uploader(
-        "Upload Rail Corrugation file(s)",
-        type=["csv", "zip"],
-        accept_multiple_files=True,
-        help="Upload one or more axle-box vibration/shock CSV files, or a single ZIP archive of CSV files.",
-    )
+    with ui.card():
+        st.caption("Upload one or more axle-box vibration/shock CSV files, or a ZIP archive of CSV files.")
+        uploaded_files = st.file_uploader(
+            "Rail Corrugation file(s)",
+            type=["csv", "zip"],
+            accept_multiple_files=True,
+            label_visibility="collapsed",
+        )
     if not uploaded_files:
-        st.info("Upload one or more Rail Corrugation CSV files (or a ZIP of CSV files) to begin.")
+        ui.render_empty_state("Upload one or more Rail Corrugation CSV files (or a ZIP of CSV files) to begin.")
         return
 
-    # --- Expand + validate (Part B) -------------------------------------
-    sources, archive_problems = expand_uploaded_files(uploaded_files)
-    sources, filename_problems = check_filenames(sources)
+    # --- Validating/processing state (real stages, no fake percentages) --
+    with st.status("Validating files...", expanded=False) as status:
+        sources, archive_problems = expand_uploaded_files(uploaded_files)
+        sources, filename_problems = check_filenames(sources)
 
-    validation_rows = []
-    valid_frames: dict[str, pd.DataFrame] = {}
-
-    for file_id, raw_bytes in sources:
-        frame, read_error = _try_read_csv(raw_bytes)
-        if read_error:
-            validation_rows.append({"file_id": file_id, "valid": False, "problems": [read_error]})
-            continue
-        problems = validate_uploaded_frame(frame)
-        if problems:
+        validation_rows = []
+        valid_frames: dict[str, pd.DataFrame] = {}
+        for file_id, raw_bytes in sources:
+            frame, read_error = _try_read_csv(raw_bytes)
+            if read_error:
+                validation_rows.append({"file_id": file_id, "valid": False, "problems": [read_error]})
+                continue
+            problems = validate_uploaded_frame(frame)
+            if problems:
+                validation_rows.append({"file_id": file_id, "valid": False, "problems": problems})
+                continue
+            validation_rows.append({"file_id": file_id, "valid": True, "problems": []})
+            valid_frames[file_id] = frame
+        for file_id, problems in filename_problems.items():
             validation_rows.append({"file_id": file_id, "valid": False, "problems": problems})
-            continue
-        validation_rows.append({"file_id": file_id, "valid": True, "problems": []})
-        valid_frames[file_id] = frame
 
-    for file_id, problems in filename_problems.items():
-        validation_rows.append({"file_id": file_id, "valid": False, "problems": problems})
+        n_received = len(validation_rows)
+        n_valid = sum(1 for r in validation_rows if r["valid"])
+        n_rejected = n_received - n_valid
 
-    n_received = len(validation_rows)
-    n_valid = sum(1 for r in validation_rows if r["valid"])
-    n_rejected = n_received - n_valid
+        result_rows = []
+        prediction_errors: list[tuple[str, str]] = []
+        if valid_frames:
+            ui.safe_status_update(status, label=f"Generating predictions (0/{len(valid_frames)})...")
+            for index, (file_id, frame) in enumerate(valid_frames.items(), start=1):
+                try:
+                    single_result = predict_rail_files([(file_id, frame)], artifact=artifact)
+                except (ValueError, TypeError) as exc:
+                    prediction_errors.append((file_id, str(exc)))
+                    continue
+                row_dict = single_result.iloc[0].to_dict()
+                row_dict["attention_score"] = 1.0 - row_dict["confidence_normal"]
+                row_dict["confidence_category"] = confidence_category(row_dict["top_confidence"])
+                result_rows.append(row_dict)
+                ui.safe_status_update(status, label=f"Generating predictions ({index}/{len(valid_frames)})...")
+        ui.safe_status_update(status, label="Done", state="complete")
 
-    st.markdown("#### Validation summary")
-    cols = st.columns(4)
-    cols[0].metric("Files received", n_received)
-    cols[1].metric("Files valid", n_valid)
-    cols[2].metric("Files rejected", n_rejected)
-    cols[3].metric("Model ready", "Yes")
+    # --- Validation summary (KPI-style, not a paragraph) ------------------
+    ui.render_kpi_row(
+        [
+            {"label": "Files received", "value": n_received, "tone": "neutral"},
+            {"label": "Files valid", "value": n_valid, "tone": "good"},
+            {"label": "Files rejected", "value": n_rejected, "tone": "warning" if n_rejected else "neutral"},
+            {"label": "Model ready", "value": "Yes", "tone": "rail"},
+        ]
+    )
 
     for message in archive_problems:
-        st.warning(message)
+        ui.render_info_banner(message, tone="warning")
 
     rejected_rows = [r for r in validation_rows if not r["valid"]]
     if rejected_rows:
@@ -666,27 +758,8 @@ def render_rail_page() -> None:
                     st.markdown(f"- {problem}")
 
     if not valid_frames:
-        st.warning("No valid files to predict. Fix the issues above and re-upload.")
+        ui.render_info_banner("No valid files to predict. Fix the issues above and re-upload.", tone="warning")
         return
-
-    # --- Predict, one valid file at a time (Part A.6) --------------------
-    # Reuses predict_rail_files exactly (Stage 3's own function) via the
-    # (file_id, DataFrame) input shape it accepts. Looping one file at a
-    # time means one unexpected failure can never take down the rest of an
-    # already-validated batch.
-    result_rows = []
-    prediction_errors: list[tuple[str, str]] = []
-
-    for file_id, frame in valid_frames.items():
-        try:
-            single_result = predict_rail_files([(file_id, frame)], artifact=artifact)
-        except (ValueError, TypeError) as exc:
-            prediction_errors.append((file_id, str(exc)))
-            continue
-        row_dict = single_result.iloc[0].to_dict()
-        row_dict["attention_score"] = 1.0 - row_dict["confidence_normal"]
-        row_dict["confidence_category"] = confidence_category(row_dict["top_confidence"])
-        result_rows.append(row_dict)
 
     if prediction_errors:
         with st.expander(f"Files that passed validation but failed prediction ({len(prediction_errors)})", expanded=False):
@@ -694,18 +767,36 @@ def render_rail_page() -> None:
                 st.markdown(f"**{file_id}**: {message}")
 
     if not result_rows:
-        st.warning("No predictions could be produced.")
+        ui.render_info_banner("No predictions could be produced.", tone="warning")
         return
 
     results_df = pd.DataFrame(result_rows)
 
+    # --- Results dashboard grid -------------------------------------------
     render_summary_cards(results_df)
-    queue = render_review_queue(results_df)
-    render_selected_file_explanation(queue, valid_frames, artifact)
+    render_primary_analytics(results_df)
+
+    queue_col, selected_col = st.columns([0.65, 0.35])
+    with queue_col:
+        with ui.card():
+            ui.render_section_heading("Engineer review queue")
+            queue = render_review_queue(results_df)
+    with selected_col:
+        with ui.card():
+            ui.render_section_heading("Selected file")
+            selected_file_id, feature_row = render_selected_file_panel(queue, valid_frames, artifact)
+
+    selected_row = queue.loc[queue["file_id"] == selected_file_id].iloc[0]
+    render_model_explanation(selected_row, feature_row, artifact)
+
+    with ui.card():
+        ui.render_section_heading("Signal evidence", help_text="One evidence view at a time -- choose a tab below.")
+        render_signal_evidence(valid_frames[selected_file_id], feature_row, selected_file_id)
+
+    ui.render_section_heading("Downloads")
     render_downloads(results_df)
 
-    st.divider()
-    st.caption(RAIL_DISCLAIMER)
+    ui.render_footer(RAIL_DISCLAIMER)
 
 
 __all__ = ["render_rail_page"]
