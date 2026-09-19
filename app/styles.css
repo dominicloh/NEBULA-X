@@ -90,7 +90,7 @@
 /* Product wordmark: 44px desktop / 36px narrower displays (see the media
    query below), weight 800, tight letter-spacing, near-black. */
 .nebula-header__name {
-  font-size: 2.75rem;
+  font-size: 3.75rem;
   font-weight: 800;
   color: var(--nebula-text);
   letter-spacing: -0.02em;
@@ -126,7 +126,7 @@
 }
 /* Card/chart titles -- the vast majority of headings (they sit inside a card). */
 .nebula-section-title {
-  font-size: 1.05rem;
+  font-size: 1.30rem;
   font-weight: 650;
   color: var(--nebula-text);
 }
