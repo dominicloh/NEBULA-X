@@ -879,10 +879,6 @@ def render_rail_page() -> None:
         for file_id, problems in filename_problems.items():
             validation_rows.append({"file_id": file_id, "valid": False, "problems": problems})
 
-        n_received = len(validation_rows)
-        n_valid = sum(1 for r in validation_rows if r["valid"])
-        n_rejected = n_received - n_valid
-
         result_rows = []
         prediction_errors: list[tuple[str, str]] = []
         if valid_frames:
@@ -899,16 +895,6 @@ def render_rail_page() -> None:
                 result_rows.append(row_dict)
                 ui.safe_status_update(status, label=f"Generating predictions ({index}/{len(valid_frames)})...")
         ui.safe_status_update(status, label="Done", state="complete")
-
-    # --- Validation summary (KPI-style, not a paragraph) ------------------
-    ui.render_kpi_row(
-        [
-            {"label": "Files received", "value": n_received, "tone": "neutral"},
-            {"label": "Files valid", "value": n_valid, "tone": "good"},
-            {"label": "Files rejected", "value": n_rejected, "tone": "warning" if n_rejected else "neutral"},
-            {"label": "Model ready", "value": "Yes", "tone": "rail"},
-        ]
-    )
 
     for message in archive_problems:
         ui.render_info_banner(message, tone="warning")
