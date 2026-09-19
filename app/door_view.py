@@ -153,10 +153,10 @@ def render_primary_analytics(detailed: pd.DataFrame) -> None:
             counts = detailed["prediction"].value_counts()
             labels = ["Normal", "Abnormal resistance"]
             values = [int(counts.get(label, 0)) for label in labels]
+            # No caption duplicating counts/percentages below the chart --
+            # the donut's outside labels (label, count, percentage) already
+            # show this.
             ui.render_donut_chart(labels, values, colors=[ui.CLASS_COLORS["Normal"], ui.CLASS_COLORS["Abnormal resistance"]])
-            total = sum(values) or 1
-            for label, value in zip(labels, values):
-                st.caption(f"{label}: {value} ({value / total:.0%})")
 
 
 # ---------------------------------------------------------------------------

@@ -294,18 +294,24 @@ def render_class_bar_chart(labels: list[str], values: list[int], *, height: int 
     st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
 
-def render_donut_chart(labels: list[str], values: list[int], *, colors: list[str] | None = None, height: int = 240) -> None:
+def render_donut_chart(labels: list[str], values: list[int], *, colors: list[str] | None = None, height: int = 260) -> None:
     fig = go.Figure(
         go.Pie(
             labels=labels,
             values=values,
             hole=0.58,
             marker=dict(colors=colors) if colors else None,
-            textinfo="percent",
+            texttemplate="%{label}: %{value} (%{percent})",
+            textposition="outside",
+            textfont=dict(size=13),
+            automargin=True,
             hovertemplate="%{label}: %{value} (%{percent})<extra></extra>",
         )
     )
     _base_layout(fig, height=height, showlegend=True)
+    # Outside labels + their connector lines need real margin -- _base_layout's
+    # shared 8px margin is sized for charts with no labels outside the plot area.
+    fig.update_layout(margin=dict(l=70, r=70, t=30, b=30), legend=dict(font=dict(size=14)))
     st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
 
@@ -369,6 +375,18 @@ def render_timeline(
     )
     fig.update_yaxes(visible=False)
     _base_layout(fig, height=height, showlegend=True)
+    # Recording/elapsed time read as MM:SS -- a 2-minute major grid with a
+    # subtler 1-minute minor grid reads far more precisely than Plotly's
+    # automatic ~5-minute default on a datetime axis this short.
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor="#E4E7F0",
+        dtick=120000,  # 2 minutes, in ms -- datetime axes take a raw ms dtick.
+        tickformat="%M:%S",
+        tickfont=dict(size=13),
+        minor=dict(dtick=60000, showgrid=True, gridcolor="#F0F1F6", gridwidth=1),
+    )
+    fig.update_layout(legend_title_text="Prediction", legend=dict(font=dict(size=14), title_font=dict(size=14)))
     st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
 
