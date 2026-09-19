@@ -9,7 +9,7 @@ directly.
 
 DASHBOARD LAYOUT NOTE: functions below are grouped by the six dashboard rows
 in the design brief (KPI cards; cycle timeline + classification summary;
-review queue + selected cycle; sensor evidence tabs; model insight;
+review queue + selected cycle; graphical display tabs; model insight;
 downloads). Every number/chart comes from `official`/`detailed`
 (`predict_door_file`'s real output) or the loaded model artifact -- nothing
 here invents a metric or a threshold.
@@ -286,11 +286,11 @@ def render_cycle_queue_table(filtered_queue: pd.DataFrame) -> None:
             return "background-color: #EAF9EC; color: #1E7A31; font-weight: 700; border-radius: 999px; padding: 0.15rem 0.55rem;"
         return ""
 
-    styled = display_table.style.applymap(
+    styled = display_table.style.map(
         lambda v: style_prediction_column(v) if isinstance(v, str) else "",
         subset=["Prediction"],
     )
-    styled = styled.applymap(
+    styled = styled.map(
         lambda v: style_review_status(v) if isinstance(v, str) else "",
         subset=["Review status"],
     )
@@ -334,11 +334,11 @@ def render_selected_cycle_panel(filtered_queue: pd.DataFrame, stream: pd.DataFra
 
 
 # ---------------------------------------------------------------------------
-# Row 4 -- Sensor evidence (tabs, one view at a time)
+# Row 4 -- Graphical Display (tabs, one view at a time)
 # ---------------------------------------------------------------------------
 
 
-def render_sensor_evidence(stream: pd.DataFrame, row: pd.Series) -> None:
+def render_graphical_display(stream: pd.DataFrame, row: pd.Series) -> None:
     window = _cycle_evidence(stream, row["start_time"], row["end_time"])
     tab_labels = list(_SENSOR_TABS.keys()) + ["Overlaid (current & position)"]
     tabs = st.tabs(tab_labels)
@@ -374,19 +374,6 @@ def render_sensor_evidence(stream: pd.DataFrame, row: pd.Series) -> None:
 # ---------------------------------------------------------------------------
 
 
-def render_model_insight() -> None:
-    artifact = load_door_pipeline(config.MODEL_ARTIFACT_PATH)
-    pipeline = artifact["pipeline"]
-    if not hasattr(pipeline, "feature_importances_"):
-        return
-    with ui.card("door_insight_card"):
-        ui.render_section_heading("Model-wide feature importance")
-        importance = pd.Series(pipeline.feature_importances_, index=artifact["feature_names"]).sort_values(ascending=False).head(10)
-        ui.render_horizontal_bar(list(importance.index), list(importance.values), value_format=".3f", height=340)
-        ui.render_info_banner(
-            "Importance describes the fitted model overall and is not a per-cycle physical root-cause explanation.",
-            tone="warning",
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -474,10 +461,10 @@ def render_door_page() -> None:
 
     if selected_row is not None:
         with ui.card("door_evidence_card"):
-            ui.render_section_heading("Sensor evidence", help_text="One sensor at a time -- choose a tab below. X-axis is time; y-axis units are shown where confirmed by the Info Kit.")
-            render_sensor_evidence(stream, selected_row)
+            ui.render_section_heading("Graphical Display", help_text="One sensor at a time -- choose a tab below. X-axis is time; y-axis units are shown where confirmed by the Info Kit.")
+            st.markdown("<div class='nebula-caption'>View the sensor signals used to support the model’s prediction.</div>", unsafe_allow_html=True)
+            render_graphical_display(stream, selected_row)
 
-    render_model_insight()
 
     ui.render_section_heading("Downloads", level="section")
     render_downloads(official, detailed)

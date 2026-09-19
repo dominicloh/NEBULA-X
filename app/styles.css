@@ -124,6 +124,12 @@
   font-size: 0.95rem;
   margin: 0 0 0.6rem;
 }
+.nebula-caption {
+  color: var(--nebula-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin: -0.2rem 0 0.7rem;
+}
 /* Card/chart titles -- the vast majority of headings (they sit inside a card). */
 .nebula-section-title {
   font-size: 1.30rem;
