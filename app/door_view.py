@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import io
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -252,26 +253,34 @@ def render_cycle_filters(queue: pd.DataFrame) -> pd.DataFrame:
 
 # Static demo content for the "Cases" popover -- deliberately NOT presented
 # as retrieved-by-similarity or as a confirmed cause: see _render_maintenance_popover.
+#
+# "last_updated" is a fixed literal, not datetime.now() -- it records when
+# this demonstration guide ENTRY was last edited, not when a fault occurred,
+# and must stay identical across every rerun rather than drift with today's
+# date.
 _MAINTENANCE_REFERENCE_CASES = (
     {
         "title": "Door-track obstruction",
+        "reference_id": "DEMO-DOR-001",
+        "last_updated": "2026-09-19",
         "possible_sign": "Increased motor effort during part of the movement.",
         "previous_action": "Inspected the track and removed debris.",
-        "handled_by": "Door maintenance team",
         "outcome": "Normal movement restored.",
     },
     {
         "title": "Roller or guide misalignment",
+        "reference_id": "DEMO-DOR-002",
+        "last_updated": "2026-09-19",
         "possible_sign": "Resistance repeatedly appearing near the same door position.",
         "previous_action": "Checked roller alignment and mechanical wear.",
-        "handled_by": "Mechanical systems engineer",
         "outcome": "Guide adjusted and cycle retested.",
     },
     {
         "title": "Increased drive friction",
+        "reference_id": "DEMO-DOR-003",
+        "last_updated": "2026-09-19",
         "possible_sign": "Higher motor loading across a larger part of the cycle.",
         "previous_action": "Inspected the drive mechanism, seals and moving components.",
-        "handled_by": "Reliability engineer",
         "outcome": "Friction source identified and corrective maintenance performed.",
     },
 )
@@ -293,8 +302,12 @@ def _render_engineer_notes(cycle: int) -> None:
             outcome = st.text_area("Outcome", key=f"door_note_outcome_{cycle}")
             submitted = st.form_submit_button("Save note")
         if submitted and any(field.strip() for field in (engineer, observation, action, outcome)):
+            # Timestamp is generated here, at the moment "Save note" is
+            # clicked -- never on an ordinary rerun -- so it reflects when
+            # the note was actually saved, not when the page happened to redraw.
             notes_store.setdefault(cycle, []).append(
                 {
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "engineer": engineer.strip(),
                     "observation": observation.strip(),
                     "action": action.strip(),
@@ -307,7 +320,7 @@ def _render_engineer_notes(cycle: int) -> None:
             st.markdown(f"**Saved notes for Cycle {cycle} (this session)**")
             for i, note in enumerate(saved_notes, start=1):
                 st.markdown(
-                    f"**#{i} · {note['engineer'] or 'Unnamed engineer'}**  \n"
+                    f"**#{i} · {note['engineer'] or 'Unnamed engineer'} · {note.get('timestamp', '—')}**  \n"
                     f"Observation: {note['observation'] or '—'}  \n"
                     f"Action taken: {note['action'] or '—'}  \n"
                     f"Outcome: {note['outcome'] or '—'}"
@@ -332,10 +345,10 @@ def _render_maintenance_popover(cycle: int) -> None:
     for case in _MAINTENANCE_REFERENCE_CASES:
         with st.container(border=True):
             st.markdown(f"**{case['title']}**")
+            st.caption(f"Reference ID: {case['reference_id']} · Last updated: {case['last_updated']}")
             st.markdown(
                 f"Possible sign: {case['possible_sign']}  \n"
                 f"Previous action: {case['previous_action']}  \n"
-                f"Handled by: {case['handled_by']}  \n"
                 f"Outcome: {case['outcome']}"
             )
     st.divider()
