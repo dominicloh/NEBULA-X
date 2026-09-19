@@ -628,14 +628,20 @@ def _render_rail_maintenance_popover(prediction: str, file_id: str) -> None:
     )
     st.caption("Demonstration reference cases -- not genuine organiser maintenance records.")
     for case in cases:
-        with st.container(border=True):
-            st.markdown(f"**{case['title']}**")
-            st.caption(f"Reference ID: {case['reference_id']} · Last updated: {case['last_updated']}")
-            st.markdown(
-                f"Possible sign: {case['possible_sign']}  \n"
-                f"Previous action: {case['previous_action']}  \n"
-                f"Outcome: {case['outcome']}"
-            )
+        st.markdown(
+            f"""
+            <div class="nebula-reference-case">
+              <div class="nebula-reference-case__title">{case['title']}</div>
+              <div class="nebula-reference-case__meta">Reference ID: {case['reference_id']} · Last updated: {case['last_updated']}</div>
+              <div class="nebula-reference-case__body">
+                <strong>Possible sign:</strong> {case['possible_sign']}<br>
+                <strong>Previous action:</strong> {case['previous_action']}<br>
+                <strong>Outcome:</strong> {case['outcome']}
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     st.divider()
     _render_rail_engineer_notes(file_id)
 
