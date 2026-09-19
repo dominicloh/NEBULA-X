@@ -397,7 +397,7 @@ def render_signal_evidence(frame: pd.DataFrame, feature_row: pd.Series, file_id:
     signal, column_name, side = resolved
     st.caption(f"**{column_name}** ({side})")
 
-    tab_waveform, tab_spectrum, tab_side = st.tabs(["Waveform", "Frequency spectrum", "Side comparison"])
+    tab_waveform, tab_spectrum = st.tabs(["Waveform", "Frequency spectrum"])
 
     with tab_waveform:
         time_seconds = np.arange(len(signal)) / SAMPLING_FREQUENCY_HZ
@@ -407,31 +407,6 @@ def render_signal_evidence(frame: pd.DataFrame, feature_row: pd.Series, file_id:
         freqs = np.fft.rfftfreq(len(signal), d=1.0 / SAMPLING_FREQUENCY_HZ)
         spectrum = np.abs(np.fft.rfft(signal - signal.mean()))
         ui.render_line_chart(freqs, spectrum, color="#9254DE", xlabel="Frequency (Hz)", ylabel="Magnitude")
-
-    with tab_side:
-        # Reuses the already-computed feature values (no new computation) --
-        # a direct visual of the Side I vs Side II comparison the model
-        # itself was given as input features.
-        pairs = [
-            ("Vibration RMS", "vib_s1_rms_avg", "vib_s2_rms_avg"),
-            ("Shock RMS", "shock_s1_rms_avg", "shock_s2_rms_avg"),
-            ("Spectral energy", "vib_s1_spectral_energy_avg", "vib_s2_spectral_energy_avg"),
-        ]
-        labels, side_i_values, side_ii_values = [], [], []
-        for label, key_i, key_ii in pairs:
-            if key_i in feature_row.index and key_ii in feature_row.index:
-                labels.append(label)
-                side_i_values.append(float(feature_row[key_i]))
-                side_ii_values.append(float(feature_row[key_ii]))
-        if labels:
-            import plotly.graph_objects as go
-
-            fig = go.Figure()
-            fig.add_bar(name="Side I", x=labels, y=side_i_values, marker_color=ui.CLASS_COLORS["Side I"])
-            fig.add_bar(name="Side II", x=labels, y=side_ii_values, marker_color=ui.CLASS_COLORS["Side II"])
-            fig.update_layout(barmode="group", height=260, margin=dict(l=8, r=8, t=8, b=8), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", legend=dict(orientation="h", y=1.05))
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-        st.caption(f"side_energy_diff (Side I − Side II, RMS-based): {feature_row.get('side_energy_diff', float('nan')):+.4f}")
 
     if SPEED_COLUMN_NAME in frame.columns:
         speed_info = _rotating_speed_features(frame[SPEED_COLUMN_NAME].to_numpy(dtype=float), SAMPLING_FREQUENCY_HZ)
