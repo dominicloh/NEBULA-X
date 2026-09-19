@@ -164,39 +164,140 @@ def render_primary_analytics(detailed: pd.DataFrame) -> None:
 # ---------------------------------------------------------------------------
 
 
-def render_cycle_queue(detailed: pd.DataFrame) -> pd.DataFrame:
+def _build_cycle_queue(detailed: pd.DataFrame) -> pd.DataFrame:
+    """Add Priority/Cycle columns in the existing chronological order --
+    this is the one, unfiltered source of truth for the queue. Never
+    mutates `detailed`; returns a fresh copy so filtering below can never
+    touch the underlying prediction DataFrame.
+    """
     queue = detailed.copy()
     queue.insert(0, "Priority", range(1, len(queue) + 1))
     queue.insert(1, "Cycle", range(1, len(queue) + 1))
-
-    display_table = pd.DataFrame(
-        {
-            "Priority": queue["Priority"],
-            "Cycle": queue["Cycle"],
-            "Start time": queue["start_time"],
-            "End time": queue["end_time"],
-            "Prediction": queue["prediction"],
-            "Confidence": queue["model_confidence"].map(lambda v: f"{v:.1%}"),
-            # Plain text only -- never a Streamlit colour-markup string --
-            # see the note in app/rail_view.py::render_review_queue.
-            "Review status": queue["needs_review"].map({True: "Needs review", False: "Reviewed"}),
-        }
-    )
-    st.dataframe(display_table, use_container_width=True, hide_index=True, height=280)
     return queue
 
 
-def render_selected_cycle_panel(queue: pd.DataFrame, stream: pd.DataFrame) -> pd.Series:
-    selected = st.selectbox(
-        "Inspect cycle",
-        range(len(queue)),
-        format_func=lambda index: f"Cycle {index + 1}: {queue.iloc[index]['prediction']}",
+_STATUS_FILTER_OPTIONS = ("All cycles", "Needs review", "No review flag")
+_PREDICTION_FILTER_OPTIONS = ("All predictions", "Normal", "Abnormal resistance")
+
+
+def _reset_door_filters() -> None:
+    """`on_click` callback for the "Show all cycles" button -- resets filter
+    widget state before the next rerun, which is the crash-free way to
+    change a `key`-bound widget's value (mutating st.session_state directly
+    after the widget has already rendered this run raises in Streamlit).
+    """
+    st.session_state["door_status_filter"] = "All cycles"
+    st.session_state["door_prediction_filter"] = "All predictions"
+    st.session_state["door_cycle_filter"] = "All"
+
+
+def _apply_queue_filters(queue: pd.DataFrame, status_filter: str, prediction_filter: str, cycle_filter: str) -> pd.DataFrame:
+    """Filter the DISPLAY copy only -- uses the existing `needs_review`
+    boolean and `prediction` values exactly as already computed; never
+    recalculates a threshold and never touches `queue` in place.
+
+    "No review flag" (needs_review=False) intentionally does NOT mean a
+    human has reviewed the cycle -- the app has no such record. It only
+    means the model's own confidence didn't trigger the review flag.
+    """
+    filtered = queue
+    if status_filter == "Needs review":
+        filtered = filtered[filtered["needs_review"]]
+    elif status_filter == "No review flag":
+        filtered = filtered[~filtered["needs_review"]]
+    # "All cycles" -> no status filtering.
+
+    if prediction_filter != "All predictions":
+        filtered = filtered[filtered["prediction"] == prediction_filter]
+
+    if cycle_filter != "All":
+        filtered = filtered[filtered["Cycle"] == int(cycle_filter)]
+
+    return filtered.copy()
+
+
+def render_cycle_filters(queue: pd.DataFrame) -> pd.DataFrame:
+    """Renders the filter row + a concise result count, and returns the
+    FILTERED queue (a copy) for the table and selected-cycle panel below.
+    Filtering only changes what's displayed here -- KPI totals and the
+    classification summary are rendered from `official`/`detailed` earlier
+    in `render_door_page` and never see this filtered view.
+    """
+    # Default: "Needs review" when at least one cycle needs it, else "All
+    # cycles" -- seeded once (like app.ui.subsystem_selector's pattern) so a
+    # later manual filter choice on the same result isn't overridden every rerun.
+    if "door_status_filter" not in st.session_state:
+        st.session_state["door_status_filter"] = "Needs review" if bool(queue["needs_review"].any()) else "All cycles"
+    st.session_state.setdefault("door_prediction_filter", "All predictions")
+    st.session_state.setdefault("door_cycle_filter", "All")
+
+    ui.render_legend([("No review flag / Normal", "good"), ("Needs review", "warning"), ("Abnormal resistance", "critical")])
+
+    col1, col2, col3, col4 = st.columns([1.1, 1.1, 0.9, 1])
+    with col1:
+        status_filter = st.selectbox("Review status", _STATUS_FILTER_OPTIONS, key="door_status_filter")
+    with col2:
+        prediction_filter = st.selectbox("Prediction", _PREDICTION_FILTER_OPTIONS, key="door_prediction_filter")
+    with col3:
+        cycle_options = ["All"] + [str(c) for c in queue["Cycle"].tolist()]
+        cycle_filter = st.selectbox("Cycle", cycle_options, key="door_cycle_filter")
+    with col4:
+        st.markdown("<div style='height:1.7rem'></div>", unsafe_allow_html=True)  # align with the selectboxes above
+        st.button("Show all cycles", on_click=_reset_door_filters, use_container_width=True)
+
+    filtered = _apply_queue_filters(queue, status_filter, prediction_filter, cycle_filter)
+    st.caption(f"Showing {len(filtered)} of {len(queue)} cycles")
+    return filtered
+
+
+def render_cycle_queue_table(filtered_queue: pd.DataFrame) -> None:
+    if filtered_queue.empty:
+        ui.render_empty_state("No cycles match the selected filters.")
+        return
+    display_table = pd.DataFrame(
+        {
+            "Priority": filtered_queue["Priority"],
+            "Cycle": filtered_queue["Cycle"],
+            "Start time": filtered_queue["start_time"],
+            "End time": filtered_queue["end_time"],
+            "Prediction": filtered_queue["prediction"],
+            "Confidence": filtered_queue["model_confidence"].map(lambda v: f"{v:.1%}"),
+            # Plain text only -- never a Streamlit colour-markup string like
+            # ":green[No review flag]" -- a plain st.dataframe cell renders
+            # that literally as text rather than styling it.
+            # "No review flag" (not "Reviewed"): the app has no record of a
+            # human actually reviewing the cycle -- this only means the
+            # model's own confidence didn't trigger the review flag.
+            "Review status": filtered_queue["needs_review"].map({True: "Needs review", False: "No review flag"}),
+        }
     )
-    row = queue.iloc[selected]
+    st.dataframe(display_table, use_container_width=True, hide_index=True, height=280)
+
+
+def render_selected_cycle_panel(filtered_queue: pd.DataFrame, stream: pd.DataFrame) -> pd.Series | None:
+    if filtered_queue.empty:
+        ui.render_empty_state("No cycle selected -- adjust filters to inspect a cycle.")
+        return None
+
+    available_cycles = filtered_queue["Cycle"].tolist()
+    # If the previously selected cycle was filtered out, safely fall back to
+    # the first visible one -- set BEFORE the widget renders, so this can
+    # never raise or show an empty selection.
+    if st.session_state.get("door_selected_cycle") not in available_cycles:
+        st.session_state["door_selected_cycle"] = available_cycles[0]
+
+    selected_cycle = st.selectbox(
+        "Inspect cycle",
+        available_cycles,
+        key="door_selected_cycle",
+        format_func=lambda c: f"Cycle {c}: {filtered_queue.loc[filtered_queue['Cycle'] == c, 'prediction'].iloc[0]}",
+    )
+    row = filtered_queue.loc[filtered_queue["Cycle"] == selected_cycle].iloc[0]
     duration = (parse_door_datetime(row["end_time"]) - parse_door_datetime(row["start_time"])).total_seconds()
 
     st.markdown(f"**Cycle:** {row['Cycle']}")
-    st.markdown(f"**Prediction:** {row['prediction']}")
+    prediction_tone = "critical" if row["prediction"] == "Abnormal resistance" else "good"
+    ui.render_status_pill(row["prediction"], prediction_tone)
     tone = "warning" if row["needs_review"] else "good"
     ui.render_status_pill(f"{row['model_confidence']:.1%} confidence", tone)
     st.markdown(f"**Duration:** {duration:.2f} s")
@@ -329,26 +430,33 @@ def render_door_page() -> None:
     detailed["model_confidence"] = detailed[confidence_columns].max(axis=1) if confidence_columns else float("nan")
     detailed["needs_review"] = detailed["model_confidence"].lt(REVIEW_CONFIDENCE_CUTOFF)
 
+    # KPIs and the classification summary are computed from `official`/
+    # `detailed` directly -- the queue filters introduced below only affect
+    # what's displayed in the queue table and the selected-cycle panel.
     render_summary_cards(official, detailed)
     render_primary_analytics(detailed)
+
+    queue_full = _build_cycle_queue(detailed)
 
     queue_col, selected_col = st.columns([0.65, 0.35])
     with queue_col:
         with ui.card():
             ui.render_section_heading("Cycle review queue", help_text=f"\"Needs review\" flags model confidence below {REVIEW_CONFIDENCE_CUTOFF:.0%} -- a prototype triage cue, not a safety threshold.")
-            queue = render_cycle_queue(detailed)
+            filtered_queue = render_cycle_filters(queue_full)
+            render_cycle_queue_table(filtered_queue)
     with selected_col:
         with ui.card():
             ui.render_section_heading("Selected cycle")
-            selected_row = render_selected_cycle_panel(queue, stream)
+            selected_row = render_selected_cycle_panel(filtered_queue, stream)
 
-    with ui.card():
-        ui.render_section_heading("Sensor evidence", help_text="One sensor at a time -- choose a tab below. X-axis is time; y-axis units are shown where confirmed by the Info Kit.")
-        render_sensor_evidence(stream, selected_row)
+    if selected_row is not None:
+        with ui.card():
+            ui.render_section_heading("Sensor evidence", help_text="One sensor at a time -- choose a tab below. X-axis is time; y-axis units are shown where confirmed by the Info Kit.")
+            render_sensor_evidence(stream, selected_row)
 
     render_model_insight()
 
-    ui.render_section_heading("Downloads")
+    ui.render_section_heading("Downloads", level="section")
     render_downloads(official, detailed)
 
 

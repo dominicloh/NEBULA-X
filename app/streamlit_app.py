@@ -67,7 +67,7 @@ TASK_LINES = {
 }
 
 if hasattr(st, "set_page_config"):
-    st.set_page_config(page_title="NEBULA X — Train Condition Monitoring", layout="wide")
+    st.set_page_config(page_title="RailClarity | Train Condition Monitoring", layout="wide")
 
 ui.inject_css()
 
