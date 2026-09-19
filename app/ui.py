@@ -303,24 +303,49 @@ def render_class_bar_chart(labels: list[str], values: list[int], *, height: int 
     st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
 
-def render_donut_chart(labels: list[str], values: list[int], *, colors: list[str] | None = None, height: int = 260) -> None:
+def render_donut_chart(
+    labels: list[str],
+    values: list[int],
+    *,
+    colors: list[str] | None = None,
+    height: int = 260,
+    label_positions: list[tuple[float, float]] | None = None,
+) -> None:
+    total = sum(values)
     fig = go.Figure(
         go.Pie(
             labels=labels,
             values=values,
             hole=0.58,
             marker=dict(colors=colors) if colors else None,
-            texttemplate="%{label}: %{value} (%{percent})",
-            textposition="outside",
-            textfont=dict(size=13),
-            automargin=True,
+            textinfo="none",
             hovertemplate="%{label}: %{value} (%{percent})<extra></extra>",
         )
     )
     _base_layout(fig, height=height, showlegend=True)
-    # Outside labels + their connector lines need real margin -- _base_layout's
-    # shared 8px margin is sized for charts with no labels outside the plot area.
-    fig.update_layout(margin=dict(l=70, r=70, t=30, b=30), legend=dict(font=dict(size=14)))
+    # Keep every percentage label grouped at the lower-left when the caller
+    # passes explicit anchor positions for that chart; otherwise retain the
+    # default Plotly behaviour.
+    if label_positions is not None:
+        annotations = []
+        for (label, value), (x, y) in zip(zip(labels, values), label_positions):
+            percent = (value / total * 100) if total else 0.0
+            annotations.append(
+                dict(
+                    text=f"{label}: {value} ({percent:.0f}%)",
+                    x=x,
+                    y=y,
+                    xref="paper",
+                    yref="paper",
+                    showarrow=False,
+                    xanchor="left",
+                    yanchor="middle",
+                    font=dict(size=12, color="#171923"),
+                )
+            )
+        fig.update_layout(margin=dict(l=60, r=40, t=20, b=20), legend=dict(font=dict(size=14)), annotations=annotations)
+    else:
+        fig.update_layout(margin=dict(l=70, r=70, t=30, b=30), legend=dict(font=dict(size=14)))
     st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
 
