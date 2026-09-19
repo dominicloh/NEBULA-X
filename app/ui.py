@@ -294,14 +294,28 @@ def render_class_bar_chart(labels: list[str], values: list[int], *, height: int 
     st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
 
-def render_donut_chart(labels: list[str], values: list[int], *, colors: list[str] | None = None, height: int = 260) -> None:
+def render_donut_chart(
+    labels: list[str],
+    values: list[int],
+    *,
+    colors: list[str] | None = None,
+    height: int = 260,
+    include_label_in_text: bool = True,
+) -> None:
+    """`include_label_in_text=False` shortens the outside slice text to just
+    "count (percent%)" -- for a donut whose legend already spells out the
+    category names in full, repeating them next to every slice as well is
+    the more crowded choice. The legend and hover tooltip always keep the
+    full label either way; only the outside text on the slice changes.
+    """
+    texttemplate = "%{label}: %{value} (%{percent})" if include_label_in_text else "%{value} (%{percent:.0%})"
     fig = go.Figure(
         go.Pie(
             labels=labels,
             values=values,
             hole=0.58,
             marker=dict(colors=colors) if colors else None,
-            texttemplate="%{label}: %{value} (%{percent})",
+            texttemplate=texttemplate,
             textposition="outside",
             textfont=dict(size=13),
             automargin=True,

@@ -198,6 +198,15 @@ _STATUS_TONE = {
     "Needs Review": "info",
 }
 
+# Unicode circles, not HTML/markdown -- st.dataframe renders a plain string
+# cell literally, so ":green[...]"/"<span>" markup would show as raw text,
+# but these render as an actual coloured dot in any Streamlit table cell.
+_STATUS_DOT = {
+    "High confidence": "\U0001f7e2",  # green circle
+    "Moderate confidence": "\U0001f7e0",  # orange circle
+    "Needs Review": "\U0001f535",  # blue circle
+}
+
 
 # ---------------------------------------------------------------------------
 # Upload expansion: plain CSVs and/or one ZIP of CSVs, in memory only --
@@ -513,7 +522,9 @@ def render_primary_analytics(results_df: pd.DataFrame) -> None:
                 labels = ["High confidence", "Moderate confidence", "Needs Review"]
                 values = [int(category_counts.get(label, 0)) for label in labels]
                 colors = [ui.TONE_COLORS["good"], ui.TONE_COLORS["warning"], ui.TONE_COLORS["info"]]
-                ui.render_donut_chart(labels, values, colors=colors)
+                # Outside slice text is count+percent only -- the legend
+                # right next to it already spells out the full category name.
+                ui.render_donut_chart(labels, values, colors=colors, include_label_in_text=False)
 
 
 # ---------------------------------------------------------------------------
@@ -524,6 +535,8 @@ def render_primary_analytics(results_df: pd.DataFrame) -> None:
 def render_review_queue(results_df: pd.DataFrame) -> pd.DataFrame:
     queue = results_df.sort_values("attention_score", ascending=False).reset_index(drop=True)
     queue.insert(0, "Priority", queue.index + 1)
+
+    ui.render_legend([(label, _STATUS_TONE[label]) for label in _STATUS_TONE])
 
     filter_choice = st.selectbox("Filter", ["All", "Normal", "Side I", "Side II", "Needs Review"], key="rail_queue_filter")
     if filter_choice == "Needs Review":
@@ -540,10 +553,15 @@ def render_review_queue(results_df: pd.DataFrame) -> pd.DataFrame:
             "Prediction": display_queue["prediction"],
             "Model confidence": display_queue["top_confidence"].map(lambda v: f"{v:.1%}"),
             "Attention score": display_queue["attention_score"].map(lambda v: f"{v:.1%}"),
-            # Plain text only (e.g. "High confidence") -- a plain st.dataframe
-            # cell renders markdown/colour syntax like ":green[...]" literally
-            # as text, so status colour lives in the legend pill row instead.
-            "Review status": display_queue["confidence_category"],
+            # Display-only: a coloured dot + the exact status text, built
+            # from confidence_category without touching it -- filtering
+            # above and everything queue/display_queue feed elsewhere
+            # (downloads, the selected-file panel, tests) still see the
+            # plain "High confidence"/"Moderate confidence"/"Needs Review"
+            # values untouched.
+            "Review status": display_queue["confidence_category"].map(
+                lambda status: f"{_STATUS_DOT.get(status, '')} {status}".strip()
+            ),
         }
     )
     st.dataframe(display_table, use_container_width=True, hide_index=True, height=280)
