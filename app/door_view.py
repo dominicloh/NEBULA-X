@@ -250,51 +250,143 @@ def render_cycle_filters(queue: pd.DataFrame) -> pd.DataFrame:
     return filtered
 
 
+# Static demo content for the "Cases" popover -- deliberately NOT presented
+# as retrieved-by-similarity or as a confirmed cause: see _render_maintenance_popover.
+_MAINTENANCE_REFERENCE_CASES = (
+    {
+        "title": "Door-track obstruction",
+        "possible_sign": "Increased motor effort during part of the movement.",
+        "previous_action": "Inspected the track and removed debris.",
+        "handled_by": "Door maintenance team",
+        "outcome": "Normal movement restored.",
+    },
+    {
+        "title": "Roller or guide misalignment",
+        "possible_sign": "Resistance repeatedly appearing near the same door position.",
+        "previous_action": "Checked roller alignment and mechanical wear.",
+        "handled_by": "Mechanical systems engineer",
+        "outcome": "Guide adjusted and cycle retested.",
+    },
+    {
+        "title": "Increased drive friction",
+        "possible_sign": "Higher motor loading across a larger part of the cycle.",
+        "previous_action": "Inspected the drive mechanism, seals and moving components.",
+        "handled_by": "Reliability engineer",
+        "outcome": "Friction source identified and corrective maintenance performed.",
+    },
+)
+
+
+def _render_engineer_notes(cycle: int) -> None:
+    """Prototype, session-only note-taking for one cycle -- stored in
+    st.session_state keyed by the cycle number, never written to disk or
+    mixed with the model's own DataFrames.
+    """
+    notes_store = st.session_state.setdefault("door_engineer_notes", {})
+
+    with st.expander("Add engineer note", expanded=False, key=f"door_notes_expander_{cycle}"):
+        st.caption("Prototype notes are stored for this browser session only.")
+        with st.form(key=f"door_note_form_{cycle}", clear_on_submit=True):
+            engineer = st.text_input("Engineer name", key=f"door_note_engineer_{cycle}")
+            observation = st.text_area("Observation", key=f"door_note_observation_{cycle}")
+            action = st.text_area("Action taken", key=f"door_note_action_{cycle}")
+            outcome = st.text_area("Outcome", key=f"door_note_outcome_{cycle}")
+            submitted = st.form_submit_button("Save note")
+        if submitted and any(field.strip() for field in (engineer, observation, action, outcome)):
+            notes_store.setdefault(cycle, []).append(
+                {
+                    "engineer": engineer.strip(),
+                    "observation": observation.strip(),
+                    "action": action.strip(),
+                    "outcome": outcome.strip(),
+                }
+            )
+
+        saved_notes = notes_store.get(cycle, [])
+        if saved_notes:
+            st.markdown(f"**Saved notes for Cycle {cycle} (this session)**")
+            for i, note in enumerate(saved_notes, start=1):
+                st.markdown(
+                    f"**#{i} · {note['engineer'] or 'Unnamed engineer'}**  \n"
+                    f"Observation: {note['observation'] or '—'}  \n"
+                    f"Action taken: {note['action'] or '—'}  \n"
+                    f"Outcome: {note['outcome'] or '—'}"
+                )
+
+
+def _render_maintenance_popover(cycle: int) -> None:
+    """Popover content for one 'Abnormal resistance' cycle's Cases control.
+
+    These three cards are fixed demonstration content, not real organiser
+    maintenance records and not the output of any similarity search or
+    model lookup -- they never claim to explain *this* cycle's prediction,
+    only to suggest generically similar situations worth investigating.
+    """
+    st.markdown("**Reference maintenance cases**")
+    ui.render_status_pill("Demo guidance", "neutral")
+    st.caption(
+        "Possible situations with similar symptoms. Use these as investigation "
+        "guidance, not confirmed diagnoses."
+    )
+    st.caption("Demonstration reference cases -- not genuine organiser maintenance records.")
+    for case in _MAINTENANCE_REFERENCE_CASES:
+        with st.container(border=True):
+            st.markdown(f"**{case['title']}**")
+            st.markdown(
+                f"Possible sign: {case['possible_sign']}  \n"
+                f"Previous action: {case['previous_action']}  \n"
+                f"Handled by: {case['handled_by']}  \n"
+                f"Outcome: {case['outcome']}"
+            )
+    st.divider()
+    _render_engineer_notes(cycle)
+
+
+_QUEUE_COLUMN_WEIGHTS = (0.55, 0.55, 1.3, 1.3, 1.5, 0.9, 1.4, 0.5)
+_QUEUE_COLUMN_HEADERS = ("Priority", "Cycle", "Start time", "End time", "Prediction", "Confidence", "Review status", "Cases")
+
+
 def render_cycle_queue_table(filtered_queue: pd.DataFrame) -> None:
+    """A presentation-only, row-by-row rendering of `filtered_queue` using
+    containers/columns instead of `st.dataframe` -- `st.dataframe` cells
+    can't hold an interactive widget, and the "Cases" column below needs a
+    real `st.popover` on every "Abnormal resistance" row. Every value here
+    is read straight from `filtered_queue`, already computed/filtered
+    upstream; this function only draws it, in the same row order.
+    """
     if filtered_queue.empty:
         ui.render_empty_state("No cycles match the selected filters.")
         return
-    display_table = pd.DataFrame(
-        {
-            "Priority": filtered_queue["Priority"],
-            "Cycle": filtered_queue["Cycle"],
-            "Start time": filtered_queue["start_time"],
-            "End time": filtered_queue["end_time"],
-            "Prediction": filtered_queue["prediction"],
-            "Confidence": filtered_queue["model_confidence"].map(lambda v: f"{v:.1%}"),
-            # Plain text only -- never a Streamlit colour-markup string like
-            # ":green[No review flag]" -- a plain st.dataframe cell renders
-            # that literally as text rather than styling it.
-            # "No review flag" (not "Reviewed"): the app has no record of a
-            # human actually reviewing the cycle -- this only means the
-            # model's own confidence didn't trigger the review flag.
-            "Review status": filtered_queue["needs_review"].map({True: "Needs review", False: "No review flag"}),
-        }
-    )
 
-    def style_prediction_column(value: str) -> str:
-        if value == "Normal":
-            return "background-color: #EAF9EC; color: #1E7A31; font-weight: 700; border-radius: 999px; padding: 0.15rem 0.55rem;"
-        if value == "Abnormal resistance":
-            return "background-color: #FDEBEB; color: #B42318; font-weight: 700; border-radius: 999px; padding: 0.15rem 0.55rem;"
-        return ""
+    header_cols = st.columns(_QUEUE_COLUMN_WEIGHTS)
+    for header_col, label in zip(header_cols, _QUEUE_COLUMN_HEADERS):
+        header_col.markdown(f"<span class='nebula-kpi__label'>{label}</span>", unsafe_allow_html=True)
 
-    def style_review_status(value: str) -> str:
-        if value == "Needs review":
-            return "background-color: #FEF3E2; color: #92610A; font-weight: 700; border-radius: 999px; padding: 0.15rem 0.55rem;"
-        if value == "No review flag":
-            return "background-color: #EAF9EC; color: #1E7A31; font-weight: 700; border-radius: 999px; padding: 0.15rem 0.55rem;"
-        return ""
-
-    styled = display_table.style.map(
-        lambda v: style_prediction_column(v) if isinstance(v, str) else "",
-        subset=["Prediction"],
-    )
-    styled = styled.map(
-        lambda v: style_review_status(v) if isinstance(v, str) else "",
-        subset=["Review status"],
-    )
-    st.dataframe(styled, use_container_width=True, hide_index=True, height=280)
+    with st.container(height=280, border=False):
+        for _, row in filtered_queue.iterrows():
+            cycle = int(row["Cycle"])
+            cols = st.columns(_QUEUE_COLUMN_WEIGHTS)
+            cols[0].markdown(str(row["Priority"]))
+            cols[1].markdown(str(cycle))
+            cols[2].markdown(str(row["start_time"]))
+            cols[3].markdown(str(row["end_time"]))
+            with cols[4]:
+                prediction_tone = "critical" if row["prediction"] == "Abnormal resistance" else "good"
+                ui.render_status_pill(row["prediction"], prediction_tone)
+            cols[5].markdown(f"{row['model_confidence']:.1%}")
+            with cols[6]:
+                needs_review = bool(row["needs_review"])
+                # "No review flag" (not "Reviewed"): the app has no record of
+                # a human actually reviewing the cycle -- this only means the
+                # model's own confidence didn't trigger the review flag.
+                status_text = "Needs review" if needs_review else "No review flag"
+                ui.render_status_pill(status_text, "warning" if needs_review else "good")
+            with cols[7]:
+                if row["prediction"] == "Abnormal resistance":
+                    with st.popover("⋯", help="View three reference cases", key=f"door_cases_popover_{cycle}"):
+                        _render_maintenance_popover(cycle)
+                else:
+                    st.markdown("<span class='nebula-muted'>—</span>", unsafe_allow_html=True)
 
 
 def render_selected_cycle_panel(filtered_queue: pd.DataFrame, stream: pd.DataFrame) -> pd.Series | None:
