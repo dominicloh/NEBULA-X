@@ -128,7 +128,7 @@ def render_primary_analytics(detailed: pd.DataFrame) -> None:
 
     with left:
         with ui.card("door_timeline_card"):
-            ui.render_section_heading("Door cycle timeline", help_text="Hover a cycle for its number, timing, prediction and confidence.")
+            ui.render_section_heading("Door Cycle Timeline", help_text="Hover a cycle for its number, timing, prediction and confidence.")
             timeline_frame = pd.DataFrame(
                 {
                     "start_dt": detailed["start_time"].map(parse_door_datetime),
@@ -445,7 +445,7 @@ def render_selected_cycle_panel(filtered_queue: pd.DataFrame, stream: pd.DataFra
 
 def render_graphical_display(stream: pd.DataFrame, row: pd.Series) -> None:
     window = _cycle_evidence(stream, row["start_time"], row["end_time"])
-    tab_labels = list(_SENSOR_TABS.keys()) + ["Overlaid (current & position)"]
+    tab_labels = list(_SENSOR_TABS.keys()) + ["Overlay (current & position)"]
     tabs = st.tabs(tab_labels)
 
     for tab, label in zip(tabs, _SENSOR_TABS.keys()):
@@ -556,7 +556,7 @@ def render_door_page() -> None:
     queue_col, selected_col = st.columns([0.65, 0.35])
     with queue_col:
         with ui.card("door_queue_card"):
-            ui.render_section_heading("Cycle review queue", help_text=f"\"Needs review\" flags model confidence below {REVIEW_CONFIDENCE_CUTOFF:.0%} -- a prototype triage cue, not a safety threshold.")
+            ui.render_section_heading("Cycle Review Queue", help_text=f"\"Needs review\" flags model confidence below {REVIEW_CONFIDENCE_CUTOFF:.0%} -- a prototype triage cue, not a safety threshold.")
             filtered_queue = render_cycle_filters(queue_full)
             render_cycle_queue_table(filtered_queue)
     with selected_col:

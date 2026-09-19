@@ -414,11 +414,11 @@ def render_timeline(
     # automatic ~5-minute default on a datetime axis this short.
     fig.update_xaxes(
         showgrid=True,
-        gridcolor="#E4E7F0",
+        gridcolor="#B9BFCE",
         dtick=120000,  # 2 minutes, in ms -- datetime axes take a raw ms dtick.
         tickformat="%M:%S",
         tickfont=dict(size=13),
-        minor=dict(dtick=60000, showgrid=True, gridcolor="#F0F1F6", gridwidth=1),
+        minor=dict(dtick=60000, showgrid=True, gridcolor="#D0D5E0", gridwidth=1),
     )
     fig.update_layout(legend_title_text="Prediction", legend=dict(font=dict(size=14), title_font=dict(size=14)))
     st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
