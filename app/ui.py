@@ -6,9 +6,10 @@ own all of that (via `src/door/*` and `src/rail_corrugation/*`); this module
 only draws things, using whatever numbers/DataFrames those pages already
 computed. No function here invents a metric.
 
-Every function degrades gracefully: if `styles.css` is missing, or an older
-Streamlit lacks a widget this module prefers, the app still renders (with a
-plainer look) rather than crashing.
+Every function degrades gracefully if an older Streamlit lacks a widget this
+module prefers. The one deliberate exception is `inject_css`: a missing
+`styles.css` fails loudly (raises) rather than silently serving an unstyled
+app, since that failure mode is invisible to anyone not comparing screenshots.
 """
 
 from __future__ import annotations
@@ -69,22 +70,29 @@ def _tone(tone: str) -> str:
 
 
 def inject_css(path: Path | None = None) -> None:
-    """Load styles.css once. Uses `st.html` when available (Streamlit's
-    documented, sandboxed way to inject a <style> block since ~1.41);
-    falls back to `st.markdown(..., unsafe_allow_html=True)` on older
-    installs that don't have `st.html`. Never raises -- a missing/broken
-    stylesheet should never take down the app, only make it plainer.
+    """Load styles.css and inject it as a persistent, page-wide <style> block.
+
+    Deliberately uses `st.markdown(..., unsafe_allow_html=True)` rather than
+    `st.html`: when `st.html`'s body is *only* a <style> tag, Streamlit
+    special-cases it (its "avoid taking up space in the app" behaviour, see
+    GH #9388) and routes it through the same ephemeral "event" delta
+    generator used for `st.toast`/`st.balloons`, instead of the persistent
+    main container. The script run completes with no exception and the
+    delta is genuinely enqueued -- so nothing looks wrong from the Python
+    side -- but the stylesheet is not reliably mounted as a lasting part of
+    the page, so none of the custom CSS ever visibly applies. `st.markdown`
+    always writes into the persistent main container, so the <style> block
+    stays mounted like any other element.
+
+    Raises FileNotFoundError instead of silently continuing when the
+    stylesheet is missing -- an app that quietly renders unstyled is a
+    worse failure mode than one that refuses to start.
     """
     css_path = path or STYLES_PATH
-    try:
-        css_text = css_path.read_text(encoding="utf-8")
-    except OSError:
-        return
-    style_block = f"<style>{css_text}</style>"
-    if hasattr(st, "html"):
-        st.html(style_block)
-    else:  # pragma: no cover - only exercised on Streamlit < 1.41
-        st.markdown(style_block, unsafe_allow_html=True)
+    if not css_path.is_file():
+        raise FileNotFoundError(f"Missing dashboard stylesheet: {css_path}")
+    css_text = css_path.read_text(encoding="utf-8")
+    st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
