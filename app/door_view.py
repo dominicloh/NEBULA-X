@@ -231,16 +231,16 @@ def render_cycle_filters(queue: pd.DataFrame) -> pd.DataFrame:
     st.session_state.setdefault("door_prediction_filter", "All predictions")
     st.session_state.setdefault("door_cycle_filter", "All")
 
-    ui.render_legend([("No review flag / Normal", "good"), ("Needs review", "warning"), ("Abnormal resistance", "critical")])
+    ui.render_legend([("Normal", "good"), ("Needs review", "warning"), ("Abnormal resistance", "critical")])
 
-    col1, col2, col3, col4 = st.columns([1.1, 1.1, 0.9, 1])
+    col1, col2, col3, col4 = st.columns([0.9, 1.1, 1.1, 1])
     with col1:
-        status_filter = st.selectbox("Review status", _STATUS_FILTER_OPTIONS, key="door_status_filter")
+        cycle_options = ["All"] + [str(c) for c in queue["Cycle"].tolist()]
+        cycle_filter = st.selectbox("Cycle", cycle_options, key="door_cycle_filter")
     with col2:
         prediction_filter = st.selectbox("Prediction", _PREDICTION_FILTER_OPTIONS, key="door_prediction_filter")
     with col3:
-        cycle_options = ["All"] + [str(c) for c in queue["Cycle"].tolist()]
-        cycle_filter = st.selectbox("Cycle", cycle_options, key="door_cycle_filter")
+        status_filter = st.selectbox("Review status", _STATUS_FILTER_OPTIONS, key="door_status_filter")
     with col4:
         st.markdown("<div style='height:1.7rem'></div>", unsafe_allow_html=True)  # align with the selectboxes above
         st.button("Show all cycles", on_click=_reset_door_filters, use_container_width=True)
@@ -271,7 +271,30 @@ def render_cycle_queue_table(filtered_queue: pd.DataFrame) -> None:
             "Review status": filtered_queue["needs_review"].map({True: "Needs review", False: "No review flag"}),
         }
     )
-    st.dataframe(display_table, use_container_width=True, hide_index=True, height=280)
+
+    def style_prediction_column(value: str) -> str:
+        if value == "Normal":
+            return "background-color: #EAF9EC; color: #1E7A31; font-weight: 700; border-radius: 999px; padding: 0.15rem 0.55rem;"
+        if value == "Abnormal resistance":
+            return "background-color: #FDEBEB; color: #B42318; font-weight: 700; border-radius: 999px; padding: 0.15rem 0.55rem;"
+        return ""
+
+    def style_review_status(value: str) -> str:
+        if value == "Needs review":
+            return "background-color: #FEF3E2; color: #92610A; font-weight: 700; border-radius: 999px; padding: 0.15rem 0.55rem;"
+        if value == "No review flag":
+            return "background-color: #EAF9EC; color: #1E7A31; font-weight: 700; border-radius: 999px; padding: 0.15rem 0.55rem;"
+        return ""
+
+    styled = display_table.style.applymap(
+        lambda v: style_prediction_column(v) if isinstance(v, str) else "",
+        subset=["Prediction"],
+    )
+    styled = styled.applymap(
+        lambda v: style_review_status(v) if isinstance(v, str) else "",
+        subset=["Review status"],
+    )
+    st.dataframe(styled, use_container_width=True, hide_index=True, height=280)
 
 
 def render_selected_cycle_panel(filtered_queue: pd.DataFrame, stream: pd.DataFrame) -> pd.Series | None:
