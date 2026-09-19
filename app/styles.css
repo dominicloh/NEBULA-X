@@ -298,7 +298,17 @@ div[data-testid="stVerticalBlockBorderWrapper"]:hover {
   display: flex;
   gap: 0.4rem;
   flex-wrap: wrap;
+  align-items: center;
   margin: 0.2rem 0 0.5rem;
+}
+/* Optional group label (app/ui.py::render_legend's `title`) -- e.g.
+   "Prediction:" before that group's pills, so two groups sharing a tone
+   (Rail's "good"/green Normal vs. High confidence) read unambiguously. */
+.nebula-legend__title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--nebula-muted);
+  white-space: nowrap;
 }
 
 /* ---- Info banner (app/ui.py::render_info_banner) ------------------------ */

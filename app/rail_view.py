@@ -645,6 +645,26 @@ def render_review_queue(results_df: pd.DataFrame) -> pd.DataFrame:
     queue = results_df.sort_values("attention_score", ascending=False).reset_index(drop=True)
     queue.insert(0, "Priority", queue.index + 1)
 
+    # Two titled groups (same _RAIL_PREDICTION_TONE / _STATUS_TONE the table
+    # pills below use) -- Rail has two colour systems in one queue, and
+    # "Normal" (prediction) and "High confidence" (review status) share the
+    # same green "good" tone, so an untitled single legend (Door's style)
+    # would read as one contradictory colour key. Two rows keeps each
+    # unambiguous while still matching Door's legend look line-for-line.
+    ui.render_legend(
+        [("Normal", "good"), ("Side I", "rail"), ("Side II", "info")],
+        title="Prediction:",
+    )
+    ui.render_legend(
+        [
+            ("High confidence", "good"),
+            ("Moderate confidence", "warning"),
+            ("Needs Review", "info"),
+            ("⋯ — View three reference cases", "neutral"),
+        ],
+        title="Review status:",
+    )
+
     filter_choice = st.selectbox("Filter", ["All", "Normal", "Side I", "Side II", "Needs Review"], key="rail_queue_filter")
     if filter_choice == "Needs Review":
         display_queue = queue[queue["confidence_category"] == "Needs Review"]
