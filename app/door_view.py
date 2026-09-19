@@ -126,7 +126,7 @@ def render_primary_analytics(detailed: pd.DataFrame) -> None:
     left, right = st.columns([2, 1])
 
     with left:
-        with ui.card():
+        with ui.card("door_timeline_card"):
             ui.render_section_heading("Door cycle timeline", help_text="Hover a cycle for its number, timing, prediction and confidence.")
             timeline_frame = pd.DataFrame(
                 {
@@ -148,7 +148,7 @@ def render_primary_analytics(detailed: pd.DataFrame) -> None:
             )
 
     with right:
-        with ui.card():
+        with ui.card("door_summary_card"):
             ui.render_section_heading("Classification summary")
             counts = detailed["prediction"].value_counts()
             labels = ["Normal", "Abnormal resistance"]
@@ -356,7 +356,7 @@ def render_model_insight() -> None:
     pipeline = artifact["pipeline"]
     if not hasattr(pipeline, "feature_importances_"):
         return
-    with ui.card():
+    with ui.card("door_insight_card"):
         ui.render_section_heading("Model-wide feature importance")
         importance = pd.Series(pipeline.feature_importances_, index=artifact["feature_names"]).sort_values(ascending=False).head(10)
         ui.render_horizontal_bar(list(importance.index), list(importance.values), value_format=".3f", height=340)
@@ -372,7 +372,7 @@ def render_model_insight() -> None:
 
 
 def render_downloads(official: pd.DataFrame, detailed: pd.DataFrame) -> None:
-    with ui.card():
+    with ui.card("door_downloads_card"):
         col1, col2 = st.columns(2)
         with col1:
             st.download_button(
@@ -400,7 +400,7 @@ def render_downloads(official: pd.DataFrame, detailed: pd.DataFrame) -> None:
 
 
 def render_door_page() -> None:
-    with ui.card():
+    with ui.card("door_upload_card"):
         st.caption("Upload one continuous Door recording (e.g. Train.csv, Test.csv, or another export in the same 17-column format).")
         uploaded = st.file_uploader("Continuous Door CSV", type=["csv"], label_visibility="collapsed")
     if uploaded is None:
@@ -440,17 +440,17 @@ def render_door_page() -> None:
 
     queue_col, selected_col = st.columns([0.65, 0.35])
     with queue_col:
-        with ui.card():
+        with ui.card("door_queue_card"):
             ui.render_section_heading("Cycle review queue", help_text=f"\"Needs review\" flags model confidence below {REVIEW_CONFIDENCE_CUTOFF:.0%} -- a prototype triage cue, not a safety threshold.")
             filtered_queue = render_cycle_filters(queue_full)
             render_cycle_queue_table(filtered_queue)
     with selected_col:
-        with ui.card():
+        with ui.card("door_selected_card"):
             ui.render_section_heading("Selected cycle")
             selected_row = render_selected_cycle_panel(filtered_queue, stream)
 
     if selected_row is not None:
-        with ui.card():
+        with ui.card("door_evidence_card"):
             ui.render_section_heading("Sensor evidence", help_text="One sensor at a time -- choose a tab below. X-axis is time; y-axis units are shown where confirmed by the Info Kit.")
             render_sensor_evidence(stream, selected_row)
 

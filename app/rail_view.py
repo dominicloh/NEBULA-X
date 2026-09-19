@@ -475,7 +475,7 @@ def render_primary_analytics(results_df: pd.DataFrame) -> None:
     left, right = st.columns([2, 1])
 
     with left:
-        with ui.card():
+        with ui.card("rail_overview_card"):
             ui.render_section_heading(
                 "Batch classification overview",
                 help_text="Counts (or, for a single file, class probabilities) come directly from the model's predictions.",
@@ -494,7 +494,7 @@ def render_primary_analytics(results_df: pd.DataFrame) -> None:
                 ui.render_class_bar_chart(labels, values)
 
     with right:
-        with ui.card():
+        with ui.card("rail_review_card"):
             ui.render_section_heading("Review status", help_text=CONFIDENCE_THRESHOLDS_NOTE)
             if len(results_df) == 1:
                 row = results_df.iloc[0]
@@ -589,8 +589,10 @@ def render_model_explanation(row: pd.Series, feature_row: pd.Series, artifact: d
     left, right = st.columns(2)
 
     with left:
-        with ui.card():
-            ui.render_section_heading("Why this prediction", help_text=FEATURE_CONTRIBUTION_DISCLAIMER)
+        with ui.card("rail_explanation_card"):
+            # No help tooltip here -- FEATURE_CONTRIBUTION_DISCLAIMER is already
+            # shown as a visible caption right below the chart in this same card.
+            ui.render_section_heading("Why this prediction")
             contributions = compute_feature_contributions(artifact["pipeline"], feature_row, row["prediction"])
             if contributions is None:
                 st.info("Feature-contribution explanation is only available for the deployed linear (Logistic Regression) model.")
@@ -607,7 +609,7 @@ def render_model_explanation(row: pd.Series, feature_row: pd.Series, artifact: d
             st.caption(FEATURE_CONTRIBUTION_DISCLAIMER)
 
     with right:
-        with ui.card():
+        with ui.card("rail_profile_card"):
             ui.render_section_heading("Signal profile", help_text="Summarises values already computed by the feature extractor for this file.")
             speed_kmh = feature_row.get("rotating_speed_estimated_kmh")
             vibration_energy = (feature_row.get("vib_s1_spectral_energy_avg", 0) + feature_row.get("vib_s2_spectral_energy_avg", 0)) / 2
@@ -648,7 +650,7 @@ def render_downloads(results_df: pd.DataFrame) -> None:
         ]
     ].copy()
 
-    with ui.card():
+    with ui.card("rail_downloads_card"):
         col1, col2 = st.columns(2)
         with col1:
             st.download_button(
@@ -682,7 +684,7 @@ def render_rail_page() -> None:
         ui.render_info_banner(f"Rail model not available: {exc}", tone="critical")
         return
 
-    with ui.card():
+    with ui.card("rail_upload_card"):
         st.caption("Upload one or more axle-box vibration/shock CSV files, or a ZIP archive of CSV files.")
         uploaded_files = st.file_uploader(
             "Rail Corrugation file(s)",
@@ -778,18 +780,18 @@ def render_rail_page() -> None:
 
     queue_col, selected_col = st.columns([0.65, 0.35])
     with queue_col:
-        with ui.card():
+        with ui.card("rail_queue_card"):
             ui.render_section_heading("Engineer review queue")
             queue = render_review_queue(results_df)
     with selected_col:
-        with ui.card():
+        with ui.card("rail_selected_card"):
             ui.render_section_heading("Selected file")
             selected_file_id, feature_row = render_selected_file_panel(queue, valid_frames, artifact)
 
     selected_row = queue.loc[queue["file_id"] == selected_file_id].iloc[0]
     render_model_explanation(selected_row, feature_row, artifact)
 
-    with ui.card():
+    with ui.card("rail_evidence_card"):
         ui.render_section_heading("Signal evidence", help_text="One evidence view at a time -- choose a tab below.")
         render_signal_evidence(valid_frames[selected_file_id], feature_row, selected_file_id)
 
