@@ -29,6 +29,7 @@ from __future__ import annotations
 import io
 import sys
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -521,6 +522,150 @@ def render_primary_analytics(results_df: pd.DataFrame) -> None:
 # ---------------------------------------------------------------------------
 
 
+# Static demo content for the "Cases" popover -- Side I and Side II each get
+# their own fixed set, deliberately NOT presented as retrieved-by-similarity
+# or as a confirmed cause: see _render_rail_maintenance_popover.
+#
+# "last_updated" is a fixed literal, not datetime.now() -- it records when
+# this demonstration guide ENTRY was last edited, not when a fault occurred,
+# and must stay identical across every rerun rather than drift with today's
+# date.
+_RAIL_SIDE_I_CASES = (
+    {
+        "title": "Localised Side I surface corrugation",
+        "reference_id": "DEMO-RC-S1-001",
+        "last_updated": "2026-09-19",
+        "possible_sign": "Repetitive vibration or shock energy is stronger across Side I channels.",
+        "previous_action": "Conducted a focused rail-surface inspection and wavelength measurement on Side I.",
+        "outcome": "Localised surface irregularity was identified and corrective grinding was scheduled.",
+    },
+    {
+        "title": "Side I wheel–rail profile interaction",
+        "reference_id": "DEMO-RC-S1-002",
+        "last_updated": "2026-09-19",
+        "possible_sign": "Side-specific vibration changes with rotating speed or appears across several Side I positions.",
+        "previous_action": "Compared wheel-profile condition and wheel–rail contact measurements across the affected car positions.",
+        "outcome": "Contact-profile irregularity was corrected and the measurement was repeated.",
+    },
+    {
+        "title": "Side I sensor mounting or channel issue",
+        "reference_id": "DEMO-RC-S1-003",
+        "last_updated": "2026-09-19",
+        "possible_sign": "Abnormally high energy is isolated to a small number of Side I channels and is inconsistent with nearby sensors.",
+        "previous_action": "Checked axle-box sensor mounting, connectors and cabling, then compared the affected channel with neighbouring sensors.",
+        "outcome": "The mounting was secured and a new recording was collected.",
+    },
+)
+
+_RAIL_SIDE_II_CASES = (
+    {
+        "title": "Localised Side II surface corrugation",
+        "reference_id": "DEMO-RC-S2-001",
+        "last_updated": "2026-09-19",
+        "possible_sign": "Repetitive vibration or shock energy is stronger across Side II channels.",
+        "previous_action": "Performed targeted rail-surface inspection and measurement along Side II.",
+        "outcome": "A recurring surface pattern was identified for follow-up maintenance.",
+    },
+    {
+        "title": "Side II support or fastening irregularity",
+        "reference_id": "DEMO-RC-S2-002",
+        "last_updated": "2026-09-19",
+        "possible_sign": "Repeated impacts are concentrated on Side II despite relatively stable signals on Side I.",
+        "previous_action": "Inspected nearby rail fasteners, support condition and track stiffness for visible irregularities.",
+        "outcome": "A fastening irregularity was corrected and the section was monitored again.",
+    },
+    {
+        "title": "Side II track-contact irregularity",
+        "reference_id": "DEMO-RC-S2-003",
+        "last_updated": "2026-09-19",
+        "possible_sign": "Short-duration Side II shock peaks occur repeatedly at a similar operating condition.",
+        "previous_action": "Checked the affected rail contact area, nearby joints and visible surface discontinuities.",
+        "outcome": "The area was marked for engineering inspection and follow-up measurement.",
+    },
+)
+
+# Keyed by the exact prediction label -- also doubles as "which predictions
+# get a Cases control at all" (Normal is deliberately absent).
+_RAIL_REFERENCE_CASES_BY_PREDICTION = {
+    "Side I": ("Side I reference cases", _RAIL_SIDE_I_CASES),
+    "Side II": ("Side II reference cases", _RAIL_SIDE_II_CASES),
+}
+
+
+def _render_rail_engineer_notes(file_id: str) -> None:
+    """Prototype, session-only note-taking for one file -- stored in
+    st.session_state keyed by file_id, never written to disk, to
+    rail_predictions.csv, or to the engineering feature matrix.
+    """
+    notes_store = st.session_state.setdefault("rail_engineer_notes", {})
+
+    with st.expander("Add engineer note", expanded=False, key=f"rail_notes_expander_{file_id}"):
+        st.caption("Prototype notes are stored for this browser session only.")
+        with st.form(key=f"rail_note_form_{file_id}", clear_on_submit=True):
+            staff_id = st.text_input("Engineer or staff ID", key=f"rail_note_staff_{file_id}")
+            observation = st.text_area("Observation", key=f"rail_note_observation_{file_id}")
+            action = st.text_area("Action taken", key=f"rail_note_action_{file_id}")
+            outcome = st.text_area("Outcome", key=f"rail_note_outcome_{file_id}")
+            submitted = st.form_submit_button("Save note")
+        if submitted and any(field.strip() for field in (staff_id, observation, action, outcome)):
+            notes_store.setdefault(file_id, []).append(
+                {
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "staff_id": staff_id.strip(),
+                    "observation": observation.strip(),
+                    "action": action.strip(),
+                    "outcome": outcome.strip(),
+                }
+            )
+
+        saved_notes = notes_store.get(file_id, [])
+        if saved_notes:
+            st.markdown(f"**Saved notes for {file_id} (this session)**")
+            for i, note in enumerate(saved_notes, start=1):
+                st.markdown(
+                    f"**#{i} · {note['staff_id'] or 'Unnamed staff'} · {note['timestamp']}**  \n"
+                    f"Observation: {note['observation'] or '—'}  \n"
+                    f"Action taken: {note['action'] or '—'}  \n"
+                    f"Outcome: {note['outcome'] or '—'}"
+                )
+
+
+def _render_rail_maintenance_popover(prediction: str, file_id: str) -> None:
+    """Popover content for one Side I / Side II file's Cases control.
+
+    These cards are fixed demonstration content, not real organiser
+    maintenance records and not the output of any similarity search or
+    model lookup -- they never claim the model diagnosed *this* file's
+    cause, only suggest generically similar situations worth investigating.
+    Side I and Side II each only ever see their own three cases.
+    """
+    title, cases = _RAIL_REFERENCE_CASES_BY_PREDICTION[prediction]
+    st.markdown(f"**{title}**")
+    ui.render_status_pill("Demo guidance", "neutral")
+    st.caption(
+        "Possible situations with similar signal patterns. Use these as investigation "
+        "guidance, not confirmed diagnoses."
+    )
+    st.caption("Demonstration reference cases -- not genuine organiser maintenance records.")
+    for case in cases:
+        with st.container(border=True):
+            st.markdown(f"**{case['title']}**")
+            st.caption(f"Reference ID: {case['reference_id']} · Last updated: {case['last_updated']}")
+            st.markdown(
+                f"Possible sign: {case['possible_sign']}  \n"
+                f"Previous action: {case['previous_action']}  \n"
+                f"Outcome: {case['outcome']}"
+            )
+    st.divider()
+    _render_rail_engineer_notes(file_id)
+
+
+_RAIL_QUEUE_COLUMN_WEIGHTS = (0.5, 1.6, 1.0, 1.15, 1.05, 1.3, 0.5)
+_RAIL_QUEUE_COLUMN_HEADERS = ("Priority", "Filename", "Prediction", "Model confidence", "Attention score", "Review status", "Cases")
+
+_RAIL_PREDICTION_TONE = {"Normal": "good", "Side I": "rail", "Side II": "info"}
+
+
 def render_review_queue(results_df: pd.DataFrame) -> pd.DataFrame:
     queue = results_df.sort_values("attention_score", ascending=False).reset_index(drop=True)
     queue.insert(0, "Priority", queue.index + 1)
@@ -533,20 +678,37 @@ def render_review_queue(results_df: pd.DataFrame) -> pd.DataFrame:
     else:
         display_queue = queue
 
-    display_table = pd.DataFrame(
-        {
-            "Priority": display_queue["Priority"],
-            "Filename": display_queue["file_id"],
-            "Prediction": display_queue["prediction"],
-            "Model confidence": display_queue["top_confidence"].map(lambda v: f"{v:.1%}"),
-            "Attention score": display_queue["attention_score"].map(lambda v: f"{v:.1%}"),
-            # Plain text only (e.g. "High confidence") -- a plain st.dataframe
-            # cell renders markdown/colour syntax like ":green[...]" literally
-            # as text, so status colour lives in the legend pill row instead.
-            "Review status": display_queue["confidence_category"],
-        }
-    )
-    st.dataframe(display_table, use_container_width=True, hide_index=True, height=280)
+    if display_queue.empty:
+        ui.render_empty_state("No files match the selected filter.")
+    else:
+        # A presentation-only, row-by-row rendering instead of st.dataframe --
+        # st.dataframe cells can't hold an interactive widget, and the
+        # "Cases" column below needs a real st.popover on every Side
+        # I/Side II row. Every value here is read straight from
+        # `display_queue`, already computed/filtered upstream.
+        header_cols = st.columns(_RAIL_QUEUE_COLUMN_WEIGHTS)
+        for header_col, label in zip(header_cols, _RAIL_QUEUE_COLUMN_HEADERS):
+            header_col.markdown(f"<span class='nebula-kpi__label'>{label}</span>", unsafe_allow_html=True)
+
+        with st.container(height=280, border=False):
+            for _, row in display_queue.iterrows():
+                file_id = row["file_id"]
+                cols = st.columns(_RAIL_QUEUE_COLUMN_WEIGHTS)
+                cols[0].markdown(str(row["Priority"]))
+                cols[1].markdown(str(file_id))
+                with cols[2]:
+                    ui.render_status_pill(row["prediction"], _RAIL_PREDICTION_TONE.get(row["prediction"], "neutral"))
+                cols[3].markdown(f"{row['top_confidence']:.1%}")
+                cols[4].markdown(f"{row['attention_score']:.1%}")
+                with cols[5]:
+                    ui.render_status_pill(row["confidence_category"], _STATUS_TONE.get(row["confidence_category"], "neutral"))
+                with cols[6]:
+                    if row["prediction"] in _RAIL_REFERENCE_CASES_BY_PREDICTION:
+                        with st.popover("⋯", help="View three reference cases", key=f"rail_cases_popover_{file_id}"):
+                            _render_rail_maintenance_popover(row["prediction"], file_id)
+                    else:
+                        st.markdown("<span class='nebula-muted'>—</span>", unsafe_allow_html=True)
+
     st.caption(f"{len(display_queue)} of {len(queue)} file(s) shown. Attention score = 1 − P(Normal).")
     return queue
 
