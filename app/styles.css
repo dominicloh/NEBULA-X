@@ -16,12 +16,14 @@
   --nebula-card: #FFFFFF;
   --nebula-text: #171923;
   --nebula-muted: #707583;
+  --nebula-muted-dark: #454B5A;
   --nebula-border: #E6E8EF;
   --nebula-green: #2FB344;
   --nebula-purple: #9254DE;
   --nebula-info: #168FE5;
   --nebula-amber: #F59E0B;
   --nebula-red: #EF4444;
+  --nebula-font: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 /* ---- Flat canvas background (no gradient) ------------------------------ */
@@ -33,7 +35,13 @@
   padding: 1.25rem clamp(1rem, 3vw, 2.5rem) 2.5rem;
 }
 
-/* ---- Headings & body text ---------------------------------------------- */
+/* ---- Typography base ----------------------------------------------------
+   A reliable system font stack (no external/downloaded font) applied
+   app-wide, plus a clear, limited size/weight scale so headings, KPI
+   numbers and body text are visually distinct rather than uniform. */
+[data-testid="stAppViewContainer"] {
+  font-family: var(--nebula-font);
+}
 [data-testid="stAppViewContainer"] h1,
 [data-testid="stAppViewContainer"] h2,
 [data-testid="stAppViewContainer"] h3,
@@ -42,9 +50,26 @@
   font-weight: 700;
   letter-spacing: -0.01em;
 }
+/* Normal body text: comfortable size + line height (not the whole app's
+   default -- Streamlit's own compact widget labels stay as-is). */
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li {
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+/* Help text / disclaimers / captions: muted but never below 12px. */
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p {
+  font-size: 0.8rem !important;
+  color: var(--nebula-muted) !important;
+}
 .nebula-muted {
   color: var(--nebula-muted) !important;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+}
+/* Table text. */
+[data-testid="stDataFrame"] * {
+  font-size: 0.88rem;
 }
 
 /* ---- Header block (app/ui.py::render_header) --------------------------- */
@@ -54,37 +79,65 @@
   gap: 0.7rem;
   flex-wrap: wrap;
 }
+/* Product wordmark: 44px desktop / 36px narrower displays (see the media
+   query below), weight 800, tight letter-spacing, near-black. */
 .nebula-header__name {
-  font-size: 1.55rem;
+  font-size: 2.75rem;
   font-weight: 800;
   color: var(--nebula-text);
   letter-spacing: -0.02em;
+  line-height: 1.1;
 }
-.nebula-header__subtitle {
-  font-size: 0.98rem;
-  color: var(--nebula-muted);
-  font-weight: 500;
+/* Restrained purple accent on "Clarity" only -- not a block of coloured text. */
+.nebula-header__accent {
+  color: var(--nebula-purple);
+}
+.nebula-header__descriptor {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--nebula-muted-dark);
+  margin: 0.1rem 0 0;
 }
 .nebula-header__status {
   display: flex;
-  justify-content: flex-end;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  justify-content: center;
   height: 100%;
 }
 .nebula-tagline {
   color: var(--nebula-muted);
-  margin: 0.1rem 0 0.5rem;
-  font-size: 0.9rem;
+  margin: 0.2rem 0 0.6rem;
+  font-size: 0.95rem;
 }
 .nebula-task-line {
   color: var(--nebula-muted);
   font-size: 0.95rem;
   margin: 0 0 0.6rem;
 }
+/* Card/chart titles -- the vast majority of headings (they sit inside a card). */
 .nebula-section-title {
-  font-size: 1.02rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--nebula-text);
+}
+/* Main dashboard section headings -- the few top-level headings between cards. */
+.nebula-section-title--section {
+  font-size: 1.3rem;
   font-weight: 700;
   color: var(--nebula-text);
+}
+
+/* Scale the wordmark and KPI numbers down together on narrower displays --
+   the two largest text elements on the page. */
+@media (max-width: 900px) {
+  .nebula-header__name {
+    font-size: 2.2rem;
+  }
+  .nebula-header__descriptor {
+    font-size: 1.05rem;
+  }
 }
 
 /* ---- Cards: bordered containers get a white surface + soft shadow ----- */
@@ -118,28 +171,33 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
   border-top: 3px solid var(--nebula-muted);
   border-radius: 8px;
   padding: 0.65rem 0.85rem;
-  height: 100px;
-  min-height: 100px;
+  height: 108px;
+  min-height: 108px;
   box-sizing: border-box;
 }
 .nebula-kpi__label {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--nebula-muted);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.2rem;
 }
 .nebula-kpi__value {
-  font-size: 1.55rem;
+  font-size: 2rem;
   font-weight: 800;
   color: var(--nebula-text);
   line-height: 1.15;
 }
 .nebula-kpi__sub {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--nebula-muted);
-  margin-top: 0.1rem;
+  margin-top: 0.15rem;
+}
+@media (max-width: 900px) {
+  .nebula-kpi__value {
+    font-size: 1.55rem;
+  }
 }
 
 /* ---- Status pill (app/ui.py::render_status_pill) ------------------------ */
@@ -181,7 +239,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
   border-radius: 8px;
   border: 1px solid var(--nebula-border);
   padding: 0.6rem 0.9rem;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   margin: 0.35rem 0 0.75rem;
 }
 .nebula-banner--neutral  { background: #F3F4F8; border-color: var(--nebula-border); color: var(--nebula-text); }

@@ -793,7 +793,7 @@ def render_rail_page() -> None:
         ui.render_section_heading("Signal evidence", help_text="One evidence view at a time -- choose a tab below.")
         render_signal_evidence(valid_frames[selected_file_id], feature_row, selected_file_id)
 
-    ui.render_section_heading("Downloads")
+    ui.render_section_heading("Downloads", level="section")
     render_downloads(results_df)
 
     ui.render_footer(RAIL_DISCLAIMER)

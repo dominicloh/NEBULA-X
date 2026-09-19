@@ -31,7 +31,11 @@ import plotly.graph_objects as go
 APP_DIR = Path(__file__).resolve().parent
 STYLES_PATH = APP_DIR / "styles.css"
 
-TAGLINE = "Explainable Door and Rail condition-monitoring analysis."
+PRODUCT_NAME = "RailClarity"
+PRODUCT_ACCENT = "Clarity"  # the part of PRODUCT_NAME rendered in the accent colour
+PRODUCT_DESCRIPTOR = "Explainable Train Condition Monitoring"
+TAGLINE = "Every train is already telling us what it needs."
+COMPETITION_BADGE = "Built for NEBULA X · PS3 Predictive Fault Detection"
 
 _VALID_TONES = {"neutral", "good", "info", "warning", "critical", "rail"}
 
@@ -98,22 +102,24 @@ def card():
 
 
 def render_header(status_text: str = "Decision-support prototype") -> None:
-    """Compact top header: product name, subtitle, and a status pill --
-    no long paragraphs.
+    """Compact top header: RailClarity wordmark, descriptor, tagline, and a
+    status pill -- no long paragraphs. NEBULA X appears only as a small
+    competition-reference badge, never as the main product title.
     """
+    wordmark = PRODUCT_NAME
+    if PRODUCT_ACCENT and PRODUCT_NAME.endswith(PRODUCT_ACCENT):
+        base = PRODUCT_NAME[: -len(PRODUCT_ACCENT)]
+        wordmark = f"{base}<span class='nebula-header__accent'>{PRODUCT_ACCENT}</span>"
+
     left, right = st.columns([3, 1])
     with left:
-        st.markdown(
-            "<div class='nebula-header'>"
-            "<span class='nebula-header__name'>NEBULA X</span>"
-            "<span class='nebula-header__subtitle'>Train Condition Monitoring</span>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
+        st.markdown(f"<div class='nebula-header'><span class='nebula-header__name'>{wordmark}</span></div>", unsafe_allow_html=True)
+        st.markdown(f"<p class='nebula-header__descriptor'>{PRODUCT_DESCRIPTOR}</p>", unsafe_allow_html=True)
         st.markdown(f"<p class='nebula-tagline'>{TAGLINE}</p>", unsafe_allow_html=True)
     with right:
         st.markdown(
-            f"<div class='nebula-header__status'>{_pill_html(status_text, 'neutral')}</div>",
+            f"<div class='nebula-header__status'>{_pill_html(status_text, 'neutral')}"
+            f"{_pill_html(COMPETITION_BADGE, 'neutral')}</div>",
             unsafe_allow_html=True,
         )
 
@@ -141,14 +147,21 @@ def render_task_line(text: str) -> None:
     st.markdown(f"<p class='nebula-task-line'>{text}</p>", unsafe_allow_html=True)
 
 
-def render_section_heading(title: str, help_text: str | None = None) -> None:
-    """A compact card/section title. Long explanations belong in
-    `help_text` (rendered as a native tooltip), not as visible body text.
+def render_section_heading(title: str, help_text: str | None = None, *, level: str = "card") -> None:
+    """A compact heading. Long explanations belong in `help_text` (rendered
+    as a native tooltip), not as visible body text.
+
+    `level="card"` (default): a card/chart title -- used for the vast
+    majority of headings, which sit inside a `ui.card()`.
+    `level="section"`: a larger main-dashboard section heading -- reserved
+    for the handful of top-level headings that sit above/between cards
+    rather than inside one (e.g. "Downloads").
     """
+    css_class = "nebula-section-title" if level == "card" else "nebula-section-title--section"
     if help_text:
-        st.markdown(f"<span class='nebula-section-title'>{title}</span>", unsafe_allow_html=True, help=help_text)
+        st.markdown(f"<span class='{css_class}'>{title}</span>", unsafe_allow_html=True, help=help_text)
     else:
-        st.markdown(f"<span class='nebula-section-title'>{title}</span>", unsafe_allow_html=True)
+        st.markdown(f"<span class='{css_class}'>{title}</span>", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -362,7 +375,10 @@ def render_line_chart(
 
 
 __all__ = [
+    "PRODUCT_NAME",
+    "PRODUCT_DESCRIPTOR",
     "TAGLINE",
+    "COMPETITION_BADGE",
     "CLASS_COLORS",
     "TONE_COLORS",
     "inject_css",
