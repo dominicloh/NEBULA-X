@@ -12,7 +12,7 @@
    ========================================================================== */
 
 :root {
-  --nebula-canvas: #F5F6FA;
+  --nebula-canvas: #F4F5F9;
   --nebula-card: #FFFFFF;
   --nebula-text: #171923;
   --nebula-muted: #707583;
@@ -24,6 +24,14 @@
   --nebula-amber: #F59E0B;
   --nebula-red: #EF4444;
   --nebula-font: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Primary dashboard card system -- distinct from --nebula-border (used
+     for smaller chrome like pills/banners) so cards read clearly against
+     the canvas without a full visual overhaul of every minor element. */
+  --nebula-card-border: #E1E4EB;
+  --nebula-card-radius: 17px;
+  --nebula-card-shadow: 0 8px 24px rgba(20, 27, 45, 0.06);
+  --nebula-card-padding: 1.35rem;
 }
 
 /* ---- Flat canvas background (no gradient) ------------------------------ */
@@ -140,14 +148,43 @@
   }
 }
 
-/* ---- Cards: bordered containers get a white surface + soft shadow ----- */
-/* st.container(border=True) already renders a thin border; this adds the
-   white fill, rounded corners and a very subtle shadow -- kept minimal so
-   the dashboard reads as flat/dense rather than decorative. */
+/* ---- Dashboard cards: bordered containers get a clear white surface --- */
+/* Every `ui.card(key=...)` call (app/ui.py) is `st.container(border=True,
+   key=...)`, which is the ONLY thing that produces this testid -- a plain
+   `st.columns()`/`st.container()` without border=True never matches this
+   selector, so purely-layout column wrappers are never touched here (no
+   indiscriminate styling of nested layout containers).
+
+   Passing `key=` additionally stamps a stable `st-key-<key>` class on the
+   element (e.g. `.st-key-door_timeline_card`) for any future card that
+   needs to differ from the rest -- see the keys listed in app/door_view.py
+   and app/rail_view.py. All cards currently share this one look. */
 div[data-testid="stVerticalBlockBorderWrapper"] {
   background: var(--nebula-card);
-  border-radius: 10px;
-  box-shadow: 0 1px 2px rgba(23, 25, 35, 0.04);
+  border: 1px solid var(--nebula-card-border);
+  border-radius: var(--nebula-card-radius);
+  box-shadow: var(--nebula-card-shadow);
+  padding: var(--nebula-card-padding);
+  margin-bottom: 1.1rem;
+}
+/* Defensive: if a bordered container is ever nested inside another one, only
+   the OUTER element gets the card treatment -- prevents a double
+   border/shadow/padding artifact around the inner content. No such nesting
+   exists today (each ui.card() call is a sibling, never inside another),
+   but this keeps that true even if the page structure changes later. */
+div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stVerticalBlockBorderWrapper"] {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  margin-bottom: 0;
+}
+/* Cards never move/scale/darken on hover -- only real state changes
+   (like a button press) should ever animate. */
+div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+  box-shadow: var(--nebula-card-shadow);
+  transform: none;
 }
 
 /* ---- Upload area -------------------------------------------------------- */
@@ -164,16 +201,22 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
   font-weight: 600;
 }
 
-/* ---- KPI cards (app/ui.py::render_kpi_row) ------------------------------ */
+/* ---- KPI cards (app/ui.py::render_kpi_row) ------------------------------
+   Same white/border/shadow/radius language as the main dashboard cards,
+   plus the coloured top accent that identifies each KPI's status category.
+   Equal, fixed height keeps a row of KPI cards aligned regardless of
+   whether a "sub" percentage is present on every one. */
 .nebula-kpi {
   background: var(--nebula-card);
-  border: 1px solid var(--nebula-border);
+  border: 1px solid var(--nebula-card-border);
   border-top: 3px solid var(--nebula-muted);
-  border-radius: 8px;
-  padding: 0.65rem 0.85rem;
+  border-radius: 16px;
+  box-shadow: var(--nebula-card-shadow);
+  padding: 0.75rem 0.95rem;
   height: 108px;
   min-height: 108px;
   box-sizing: border-box;
+  margin-bottom: 0.35rem;
 }
 .nebula-kpi__label {
   font-size: 0.75rem;
@@ -198,6 +241,14 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
   .nebula-kpi__value {
     font-size: 1.55rem;
   }
+}
+
+/* Consistent vertical rhythm between any row of columns (a KPI row, or a
+   2-column card row) and whatever comes after it -- e.g. clear separation
+   between the KPI row and the chart row below. Cards remain aligned along
+   their top edges within a row; this only adds space AFTER each row. */
+[data-testid="stHorizontalBlock"] {
+  margin-bottom: 0.6rem;
 }
 
 /* ---- Status pill (app/ui.py::render_status_pill) ------------------------ */
@@ -269,8 +320,12 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 }
 
 /* ---- Dataframes / tables ------------------------------------------------ */
+/* No custom border/radius here -- the queue/table already sits inside its
+   own `ui.card()`, which now provides the module-level boundary. A second
+   border directly around the table would read as a double border right
+   next to the card's own. Internal grid lines still come from Streamlit's
+   native theme (.streamlit/config.toml's dataframeBorderColor). */
 [data-testid="stDataFrame"] {
-  border: 1px solid var(--nebula-border);
   border-radius: 8px;
   overflow: hidden;
 }

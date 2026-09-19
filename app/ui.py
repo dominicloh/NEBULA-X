@@ -92,13 +92,21 @@ def inject_css(path: Path | None = None) -> None:
 # ---------------------------------------------------------------------------
 
 
-def card():
-    """A bordered container styled as a white card by styles.css. Usage:
+def card(key: str | None = None):
+    """A bordered container styled as a white dashboard card by styles.css.
 
-        with ui.card():
+    `key` gives the container a stable identity Streamlit exposes as a
+    `st-key-<key>` CSS class (documented since ~1.35), so `styles.css` can
+    target one specific card precisely instead of every bordered container
+    on the page uniformly. Always pass a key for a top-level dashboard
+    module (e.g. "door_timeline_card"); leave it `None` only for a
+    throwaway/internal bordered block that never needs its own styling hook.
+
+    Usage:
+        with ui.card("door_timeline_card"):
             st.write("...")
     """
-    return st.container(border=True)
+    return st.container(border=True, key=key)
 
 
 def render_header(status_text: str = "Decision-support prototype") -> None:
