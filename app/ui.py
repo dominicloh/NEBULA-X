@@ -228,10 +228,19 @@ def render_status_pill(text: str, tone: str = "neutral") -> None:
     st.markdown(_pill_html(text, tone), unsafe_allow_html=True)
 
 
-def render_legend(items: Iterable[tuple[str, str]]) -> None:
-    """A small inline row of status pills used as a colour-key legend."""
+def render_legend(items: Iterable[tuple[str, str]], *, title: str | None = None) -> None:
+    """A small inline row of status pills used as a colour-key legend.
+
+    `title`, if given, renders as a small muted label immediately before
+    the pills on the same line (e.g. "Prediction:") -- for a legend that
+    needs to distinguish two groups that would otherwise share a tone/colour
+    (e.g. Rail's "Normal" prediction and "High confidence" review status are
+    both the "good"/green tone). Omitting it (the default) reproduces the
+    exact prior single-group legend output.
+    """
     pills = "".join(_pill_html(text, tone) for text, tone in items)
-    st.markdown(f"<div class='nebula-legend'>{pills}</div>", unsafe_allow_html=True)
+    title_html = f"<span class='nebula-legend__title'>{title}</span>" if title else ""
+    st.markdown(f"<div class='nebula-legend'>{title_html}{pills}</div>", unsafe_allow_html=True)
 
 
 def render_info_banner(text: str, tone: str = "info") -> None:
