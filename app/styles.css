@@ -167,6 +167,16 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
   padding: var(--nebula-card-padding);
   margin-bottom: 1.1rem;
 }
+/* Primary upload cards get a stronger purple frame and deeper shadow so the
+   upload actions stand out clearly. */
+.st-key-door_upload_card,
+div[data-testid="stVerticalBlockBorderWrapper"].st-key-door_upload_card,
+.st-key-rail_upload_card,
+div[data-testid="stVerticalBlockBorderWrapper"].st-key-rail_upload_card {
+  border: 2px solid rgba(101, 60, 160, 0.95) !important;
+  box-shadow: 0 18px 42px rgba(75, 38, 121, 0.18), 0 8px 20px rgba(146, 84, 222, 0.15) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #faf7ff 100%) !important;
+}
 /* Defensive: if a bordered container is ever nested inside another one, only
    the OUTER element gets the card treatment -- prevents a double
    border/shadow/padding artifact around the inner content. No such nesting
